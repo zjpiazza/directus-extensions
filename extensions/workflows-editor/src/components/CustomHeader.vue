@@ -41,21 +41,79 @@ const handleModeChange = (newMode: 'edit' | 'view') => {
 const toggleFollowMode = (enabled: boolean) => {
   emit('toggle-follow-mode', enabled);
 };
+
+// Breadcrumbs
+const breadcrumbs = computed(() => {
+  const crumbs: Array<{ name: string; to?: string }> = [
+    {
+      name: 'Content',
+      to: '/content',
+    },
+    {
+      name: props.collectionInfo?.name || props.collection,
+      to: `/content/${props.collection}`,
+    },
+  ];
+
+  if (props.isNew) {
+    crumbs.push({
+      name: 'Creating new item',
+    });
+  } else {
+    crumbs.push({
+      name: props.flowName || 'Untitled Workflow',
+    });
+  }
+
+  return crumbs;
+});
 </script>
 
 <template>
   <div class="custom-header">
-    <div class="header-content">
-      <div class="title-section">
-        <h1 class="flow-title">{{ title }}</h1>
-        <div class="flow-name-input">
-          <input
-            :value="flowName"
-            placeholder="Enter flow name..."
-            class="flow-name-input-field"
-            data-test="flow-name-input"
-            @input="handleUpdateFlowName(($event.target as HTMLInputElement).value)"
-          />
+    <!-- Breadcrumb section -->
+    <div class="header-top">
+      <nav class="breadcrumbs">
+        <template v-for="(crumb, index) in breadcrumbs" :key="index">
+          <router-link 
+            v-if="crumb.to" 
+            :to="crumb.to" 
+            class="breadcrumb-link"
+          >
+            {{ crumb.name }}
+          </router-link>
+          <span v-else class="breadcrumb-current">{{ crumb.name }}</span>
+          <span 
+            v-if="index < breadcrumbs.length - 1" 
+            class="breadcrumb-separator"
+          >
+            &gt;
+          </span>
+        </template>
+      </nav>
+    </div>
+
+    <!-- Main header section -->
+    <div class="header-main">
+      <div class="header-left">
+        <router-link 
+          :to="`/content/${collection}`"
+          class="back-button btn btn-secondary"
+        >
+          <span class="icon">←</span>
+        </router-link>
+
+        <div class="title-section">
+          <h1 class="header-title">{{ title }}</h1>
+          <div class="flow-name-input">
+            <input
+              :value="flowName"
+              placeholder="Enter workflow name..."
+              class="flow-name-input-field"
+              data-test="flow-name-input"
+              @input="handleUpdateFlowName(($event.target as HTMLInputElement).value)"
+            />
+          </div>
         </div>
       </div>
 
@@ -118,6 +176,7 @@ const toggleFollowMode = (enabled: boolean) => {
       </div>
     </div>
 
+    <!-- Validation errors -->
     <div v-if="validationErrors.length > 0" class="validation-errors">
       <div class="error-list">
         <div v-for="error in validationErrors" :key="error.field" class="error-item">
@@ -130,31 +189,106 @@ const toggleFollowMode = (enabled: boolean) => {
 
 <style scoped>
 .custom-header {
-  background: var(--theme--background-accent, #f8f9fa);
-  border-bottom: 1px solid var(--theme--border-color, #e1e5e9);
-  padding: 1rem 2rem;
+  background: var(--theme--background);
+  border-bottom: 1px solid var(--theme--border-color);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.header-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 2rem;
+.header-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	padding: 0.375rem 1.5rem;
+	background: var(--theme--background-subdued);
+	border-bottom: 1px solid var(--theme--border-color-subdued);
+	block-size: calc(60px + var(--theme--navigation--project--border-width));
 }
 
-.title-section {
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.breadcrumb-link {
+  color: var(--theme--primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.breadcrumb-link:hover {
+  color: var(--theme--primary-accent);
+}
+
+.breadcrumb-current {
+  color: var(--theme--foreground-subdued);
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  color: var(--theme--foreground-subdued);
+  margin: 0 0.25rem;
+}
+
+.header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  min-height: 70px;
+  background: var(--theme--background);
+  color: var(--theme--foreground);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
   flex: 1;
   min-width: 0;
 }
 
-.flow-title {
-  font-size: 1.5rem;
+.back-button {
+  color: var(--theme--foreground-subdued);
+  border-color: var(--theme--border-color);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 40px;
+  height: 40px;
+  justify-content: center;
+}
+
+.back-button:hover {
+  color: var(--theme--foreground);
+  border-color: var(--theme--border-color-accent);
+  background: var(--theme--background-accent);
+}
+
+.title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-title {
+  color: var(--theme--foreground);
+  font-size: 1.25rem;
   font-weight: 600;
-  color: var(--theme--foreground, #1a1a1a);
-  margin: 0 0 0.5rem 0;
+  margin: 0;
 }
 
 .flow-name-input {
@@ -163,7 +297,7 @@ const toggleFollowMode = (enabled: boolean) => {
 }
 
 .flow-name-input-field {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 500;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--theme--border-color, #e1e5e9);
@@ -183,6 +317,7 @@ const toggleFollowMode = (enabled: boolean) => {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .btn {
@@ -258,7 +393,7 @@ const toggleFollowMode = (enabled: boolean) => {
 }
 
 .validation-errors {
-  margin-top: 1rem;
+  margin: 1rem 1.5rem 0;
   padding: 0.75rem;
   background: var(--theme--danger-background, #f8d7da);
   border: 1px solid var(--theme--danger, #dc3545);

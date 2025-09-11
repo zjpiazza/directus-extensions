@@ -137,6 +137,7 @@ const isViewMode = computed(() => props.mode === 'view');
 
 // Follow mode state
 const followMode = ref(false);
+const focusedNodeId = ref<string | null>(null);
 const availableCollections = ref<any[]>([]);
 const availableWorkflows = ref<Array<{ id: string; name: string }>>([]);
 const showDescriptionModal = ref(false);
@@ -273,6 +274,157 @@ const handleModeChange = (newMode: 'edit' | 'view') => {
 
 const toggleFollowMode = (enabled: boolean) => {
   followMode.value = enabled;
+  
+  if (enabled) {
+    // If no node is focused, focus on the first node
+    if (!focusedNodeId.value && flowNodes.value.length > 0) {
+      const firstNode = flowNodes.value[0];
+      if (firstNode?.id) {
+        focusOnNode(firstNode.id);
+      }
+    } else if (focusedNodeId.value) {
+      // Re-focus on current node to zoom in
+      focusOnNode(focusedNodeId.value);
+    }
+  } else {
+    // Remove focused class from all nodes when follow mode is disabled
+    flowNodes.value.forEach(n => {
+      if (n.class && typeof n.class === 'string') {
+        n.class = n.class.replace(/\s*focused\s*/g, ' ').trim();
+      }
+    });
+    focusedNodeId.value = null;
+  }
+};
+
+const focusOnNode = (nodeId: string) => {
+  const node = flowNodes.value.find(n => n.id === nodeId);
+  if (!node) return;
+  
+  focusedNodeId.value = nodeId;
+  
+  // Remove focused class from all nodes
+  flowNodes.value.forEach(n => {
+    if (n.class && typeof n.class === 'string') {
+      n.class = n.class.replace(/\s*focused\s*/g, ' ').trim();
+    }
+  });
+  
+  // Add focused class to the target node
+  const targetNode = flowNodes.value.find(n => n.id === nodeId);
+  if (targetNode) {
+    const currentClass = typeof targetNode.class === 'string' ? targetNode.class : '';
+    targetNode.class = (currentClass + ' focused').trim();
+  }
+  
+  // Move the viewport to the node with smooth animation
+  fitView({
+    nodes: [nodeId],
+    duration: 400,
+    padding: 0.3,
+    maxZoom: 1.5,
+    minZoom: 1.2
+  });
+};
+
+// Get connected nodes based on direction
+const getConnectedNode = (nodeId: string, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
+  const edges = flowEdges.value;
+  const currentNode = flowNodes.value.find(n => n.id === nodeId);
+  if (!currentNode) return null;
+  
+  // Find edges connected to this node
+  const connectedEdges = edges.filter(edge => 
+    edge.source === nodeId || edge.target === nodeId
+  );
+  
+  // For simplicity, we'll use a basic approach:
+  // up/down: follow output/input connections
+  // left/right: find nodes to the left/right based on position
+  
+  if (direction === 'down') {
+    // Follow outgoing connections (this node is source)
+    const outgoingEdge = connectedEdges.find(edge => edge.source === nodeId);
+    return outgoingEdge?.target || null;
+  }
+  
+  if (direction === 'up') {
+    // Follow incoming connections (this node is target)
+    const incomingEdge = connectedEdges.find(edge => edge.target === nodeId);
+    return incomingEdge?.source || null;
+  }
+  
+  // For left/right, find nearest node in that direction
+  const allNodes = flowNodes.value.filter(n => n && n.id !== nodeId);
+  const currentPos = currentNode.position;
+  
+  let targetNodes = allNodes;
+  
+  if (direction === 'left') {
+    targetNodes = allNodes.filter(n => n && n.position && n.position.x < currentPos.x);
+  } else if (direction === 'right') {
+    targetNodes = allNodes.filter(n => n && n.position && n.position.x > currentPos.x);
+  }
+  
+  // Find the closest node
+  if (targetNodes.length === 0) return null;
+  
+  let closest = targetNodes[0];
+  if (!closest || !closest.position) return null;
+  
+  for (let i = 1; i < targetNodes.length; i++) {
+    const node = targetNodes[i];
+    if (!node || !node.position) continue;
+    
+    const closestDist = Math.sqrt(
+      Math.pow(currentPos.x - closest.position.x, 2) + 
+      Math.pow(currentPos.y - closest.position.y, 2)
+    );
+    const nodeDist = Math.sqrt(
+      Math.pow(currentPos.x - node.position.x, 2) + 
+      Math.pow(currentPos.y - node.position.y, 2)
+    );
+    if (nodeDist < closestDist) {
+      closest = node;
+    }
+  }
+  
+  return closest?.id || null;
+};
+
+// Navigate between nodes using arrow keys
+const navigateNode = (direction: 'up' | 'down' | 'left' | 'right') => {
+  if (!followMode.value || !focusedNodeId.value) return;
+  
+  const nextNodeId = getConnectedNode(focusedNodeId.value, direction);
+  if (nextNodeId) {
+    focusOnNode(nextNodeId);
+  }
+};
+
+// Handle keyboard navigation
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (!followMode.value) return;
+  
+  // Prevent default behavior for arrow keys
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    event.preventDefault();
+    
+    switch (event.key) {
+      case 'ArrowUp':
+        navigateNode('up');
+        break;
+      case 'ArrowDown':
+        navigateNode('down');
+        break;
+      case 'ArrowLeft':
+        navigateNode('left');
+        break;
+      case 'ArrowRight':
+        navigateNode('right');
+        break;
+    }
+  }
 };
 
 const onDragStart = (event: DragEvent, nodeType: any) => {
@@ -601,10 +753,14 @@ onMounted(() => {
   if (headerBar) {
     (headerBar as HTMLElement).style.display = 'none';
   }
+  
+  // Add keyboard event listener for follow mode navigation
+  document.addEventListener('keydown', handleKeyDown);
 });
 
 onUnmounted(() => {
-  // Clean up
+  // Clean up keyboard event listener
+  document.removeEventListener('keydown', handleKeyDown);
 });
 
 // Watchers
@@ -798,7 +954,7 @@ watch(flowEdges, (newEdges, oldEdges) => {
   flex: 1;
   display: grid;
   grid-template-columns: 250px 1fr 300px;
-  height: calc(100vh - 120px); /* Adjust based on header height */
+  height: calc(100vh - 150px); /* Adjust based on new header height with breadcrumbs */
   overflow: hidden;
 }
 
@@ -849,54 +1005,37 @@ watch(flowEdges, (newEdges, oldEdges) => {
   box-shadow: none;
 }
 
-/* Terminal node selection */
-.canvas-container :deep(.vue-flow__node.selected .terminal-node) {
-  outline: 3px solid var(--theme--primary, #0066cc);
-  outline-offset: 2px;
-}
-
-/* Process node selection */
-.canvas-container :deep(.vue-flow__node.selected .process-node) {
-  outline: 3px solid var(--theme--primary, #0066cc);
-  outline-offset: 2px;
-}
-
-/* Decision node selection */
-.canvas-container :deep(.vue-flow__node.selected .decision-node) {
-  position: relative;
-}
-
-.canvas-container :deep(.vue-flow__node.selected .decision-node::after) {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: transparent;
-  border: 3px solid var(--theme--primary, #0066cc);
-  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  pointer-events: none;
-}
-
-/* Off-page node selection */
+/* All node selection styling - simple outline approach */
+.canvas-container :deep(.vue-flow__node.selected .terminal-node),
+.canvas-container :deep(.vue-flow__node.selected .process-node),
+.canvas-container :deep(.vue-flow__node.selected .decision-node),
 .canvas-container :deep(.vue-flow__node.selected .offpage-node) {
-  position: relative;
+  outline: 3px solid var(--theme--primary, #0066cc);
+  outline-offset: 3px;
+  box-shadow: 0 0 8px rgba(0, 102, 204, 0.3);
 }
 
-.canvas-container :deep(.vue-flow__node.selected .offpage-node::after) {
-  content: '';
-  position: absolute;
-  top: -4px;
-  left: -4px;
-  right: -4px;
-  bottom: -4px;
-  background: transparent;
-  border: 4px solid var(--theme--primary, #0066cc);
-  /* Match home-plate shape used by OffPageNode.vue (pentagon) */
-  clip-path: polygon(0% 0%, 100% 0%, 100% 70%, 50% 100%, 0% 70%);
-  pointer-events: none;
-  box-shadow: 0 0 8px rgba(0, 102, 204, 0.3);
+/* Follow mode focused node styling */
+.canvas-container :deep(.vue-flow__node.focused .terminal-node),
+.canvas-container :deep(.vue-flow__node.focused .process-node),
+.canvas-container :deep(.vue-flow__node.focused .decision-node),
+.canvas-container :deep(.vue-flow__node.focused .offpage-node) {
+  outline: 4px solid var(--theme--warning, #ffc107);
+  outline-offset: 3px;
+  box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
+  animation: pulse-focused 2s infinite;
+}
+
+@keyframes pulse-focused {
+  0% {
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(255, 193, 7, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
+  }
 }
 
 .canvas-container :deep(.vue-flow__edge) {
@@ -904,44 +1043,26 @@ watch(flowEdges, (newEdges, oldEdges) => {
 }
 
 .canvas-container :deep(.vue-flow__handle) {
-  width: 12px;
-  height: 12px;
-  border: 2px solid #fff;
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 50%;
-  opacity: 0.8;
+  opacity: 0.6;
   transition: all 0.2s ease;
 }
 
-/* Source handles (outputs) - blue */
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="right"]),
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="bottom"]) {
-  background: #0066cc;
-}
-
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="right"]:hover),
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="bottom"]:hover) {
-  background: #004499;
-  width: 16px;
-  height: 16px;
+/* Let individual nodes control their handle colors */
+.canvas-container :deep(.vue-flow__handle:hover) {
+  width: 12px;
+  height: 12px;
   opacity: 1;
-}
-
-/* Target handles (inputs) - green */
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="top"]),
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="left"]) {
-  background: #22c55e;
-}
-
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="top"]:hover),
-.canvas-container :deep(.vue-flow__handle[data-handlepos*="left"]:hover) {
-  background: #16a34a;
-  width: 16px;
-  height: 16px;
-  opacity: 1;
+  border-width: 2px;
 }
 
 .canvas-container :deep(.vue-flow__handle-connecting) {
-  background: #00cc66;
-  border-color: #00cc66;
+  border-color: #ffffff;
+  opacity: 1;
+  width: 12px;
+  height: 12px;
 }
 </style>

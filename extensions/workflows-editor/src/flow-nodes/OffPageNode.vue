@@ -23,14 +23,16 @@ const handleNavigate = () => { if (props.data.targetWorkflowId) emit('navigate',
     <Handle id="top" type="target" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="target" :position="Position.Left" :is-connectable="true" />
     <div class="pentagon-shape">
-      <span class="node-icon">↗</span>
+      <v-icon class="node-icon" name="arrow_outward" />
       <span class="node-label">{{ targetName }}</span>
       <button
         v-if="props.data.targetWorkflowId"
         class="navigate-btn"
         @click="handleNavigate"
         title="Go to workflow"
-      >↪</button>
+      >
+        <v-icon name="arrow_forward" />
+      </button>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />

@@ -38,9 +38,7 @@ const onDragStart = (event: DragEvent, nodeType: NodeType) => {
         draggable="true"
         @dragstart="onDragStart($event, nodeType)"
       >
-        <div class="node-preview">
-          <span class="icon">{{ nodeType.icon }}</span>
-        </div>
+        <v-icon :name="nodeType.icon" />
         <span class="node-label">{{ nodeType.label }}</span>
       </div>
     </div>

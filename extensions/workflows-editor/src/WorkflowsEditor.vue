@@ -144,11 +144,11 @@ const showDescriptionModal = ref(false);
 
 // Node types for the palette
 const nodeTypes = [
-  { type: 'terminal', label: 'Terminal', icon: '⭕' },
-  { type: 'process', subtype: 'task', label: 'Task', icon: '▭' },
-  { type: 'process', subtype: 'form', label: 'Form', icon: '📄' },
-  { type: 'decision', label: 'Decision', icon: '◆' },
-  { type: 'offpage', label: 'Off-page Connector', icon: '🏠' },
+  { type: 'terminal', label: 'Terminal', icon: 'stop' },
+  { type: 'process', subtype: 'task', label: 'Task', icon: 'task' },
+  { type: 'process', subtype: 'form', label: 'Form', icon: 'description' },
+  { type: 'decision', label: 'Decision', icon: 'help' },
+  { type: 'offpage', label: 'Off-page Connector', icon: 'home' },
 ];
 
 // Vue Flow composable

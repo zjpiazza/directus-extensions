@@ -20,7 +20,7 @@ const handleOpenCollection = () => {
   }
 };
 
-const nodeIcon = computed(() => (props.data.subtype === 'form' ? '📄' : '▭'));
+const nodeIcon = computed(() => (props.data.subtype === 'form' ? 'description' : 'task'));
 const nodeColor = computed(() => (props.data.subtype === 'form' ? '#16a34a' : '#2563eb'));
 
 const displayLabel = computed(() => {
@@ -34,14 +34,16 @@ const displayLabel = computed(() => {
     <Handle id="top" type="target" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="target" :position="Position.Left" :is-connectable="true" />
     <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor }">
-      <span class="node-icon">{{ nodeIcon }}</span>
+      <v-icon class="node-icon" :name="nodeIcon" />
       <span class="node-label">{{ displayLabel }}</span>
       <button
         v-if="props.data.subtype === 'form' && props.data.targetCollection"
         class="open-collection-btn"
         @click="handleOpenCollection"
         title="Open collection"
-      >🔗</button>
+      >
+        <v-icon name="open_in_new" />
+      </button>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />

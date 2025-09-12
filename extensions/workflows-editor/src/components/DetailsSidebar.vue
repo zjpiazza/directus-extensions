@@ -180,24 +180,24 @@ const navigateToWorkflow = (workflowId: string) => {
             </option>
           </select>
           <div class="offpage-actions" v-if="selectedNode.data.targetWorkflowId">
-            <button
+              <button
+                 class="btn btn-secondary small"
+                 :disabled="isEditMode"
+                 :title="isEditMode ? 'Switch to view mode to open workflow' : 'Open linked workflow'"
+                 @click="!isEditMode ? navigateToWorkflow(selectedNode.data.targetWorkflowId) : undefined"
+               >
+                 <v-icon name="link" />
+                 Open Workflow
+               </button>
+             <button
+               v-if="isEditMode"
                class="btn btn-secondary small"
-               :disabled="isEditMode"
-               :title="isEditMode ? 'Switch to view mode to open workflow' : 'Open linked workflow'"
-               @click="!isEditMode ? navigateToWorkflow(selectedNode.data.targetWorkflowId) : undefined"
+               @click="updateOffPageTarget('')"
+               title="Clear link"
              >
-               <span class="icon">🔗</span>
-               Open Workflow
+               <v-icon name="close" />
+               Clear Link
              </button>
-            <button
-              v-if="isEditMode"
-              class="btn btn-secondary small"
-              @click="updateOffPageTarget('')"
-              title="Clear link"
-            >
-              <span class="icon">✖</span>
-              Clear Link
-            </button>
           </div>
         </div>
 

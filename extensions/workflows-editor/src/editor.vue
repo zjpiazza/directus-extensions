@@ -9,7 +9,11 @@ import { useApi } from '@directus/extensions-sdk';
 
 
 // Import your custom node components
-import { TerminalNode, ProcessNode, DecisionNode, OffPageNode, CustomHeader } from '@directus-extensions/vue-flow-shared';
+import CustomHeader from './components/CustomHeader.vue';
+import TerminalNode from './flow-nodes/TerminalNode.vue';
+import ProcessNode from './flow-nodes/ProcessNode.vue';
+import DecisionNode from './flow-nodes/DecisionNode.vue';
+import OffPageNode from './flow-nodes/OffPageNode.vue';
 
 interface Props {
 	collection: string;

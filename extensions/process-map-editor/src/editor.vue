@@ -82,7 +82,9 @@ import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import type { Node, Edge } from '@vue-flow/core';
 
-import { PhaseNode, DecisionNode, CustomHeader } from '@directus-extensions/vue-flow-shared';
+import PhaseNode from './components/PhaseNode.vue';
+import DecisionNode from './components/DecisionNode.vue';
+import CustomHeader from './components/CustomHeader.vue';
 import { useApi } from '@directus/extensions-sdk';
 
 // Define props that match what Directus passes to editors

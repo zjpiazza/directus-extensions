@@ -201,19 +201,11 @@ onMounted(() => {
 	transition: color 0.2s;
 }
 
-.breadcrumb-link:hover {
-	color: var(--theme--primary-accent);
-}
+.breadcrumb-link:hover { color: var(--theme--primary-accent); }
 
-.breadcrumb-current {
-	color: var(--theme--foreground-subdued);
-	font-weight: 500;
-}
+.breadcrumb-current { color: var(--theme--foreground-subdued); font-weight: 500; }
 
-.breadcrumb-separator {
-	color: var(--theme--foreground-subdued);
-	margin: 0 0.25rem;
-}
+.breadcrumb-separator { color: var(--theme--foreground-subdued); margin: 0 0.25rem; }
 
 .header-main {
 	display: flex;
@@ -226,90 +218,23 @@ onMounted(() => {
 	border-bottom: 1px solid var(--theme--border-color);
 }
 
-.header-left {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-	flex: 1;
-	min-width: 0;
-}
+.header-left { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0; }
 
-.back-button {
-	color: var(--theme--foreground-subdued);
-	border-color: var(--theme--border-color);
-}
+.back-button { color: var(--theme--foreground-subdued); border-color: var(--theme--border-color); }
+.back-button:hover { color: var(--theme--foreground); border-color: var(--theme--border-color-accent); }
 
-.back-button:hover {
-	color: var(--theme--foreground);
-	border-color: var(--theme--border-color-accent);
-}
+.title-section { display: flex; flex-direction: column; gap: 0.5rem; flex: 1; min-width: 0; }
 
-.title-section {
-	display: flex;
-	flex-direction: column;
-	gap: 0.5rem;
-	flex: 1;
-	min-width: 0;
-}
+.header-title { color: var(--theme--foreground); font-size: 1.25rem; font-weight: 600; margin: 0; }
 
-.info-icon {
-	background: var(--theme--primary);
-	color: var(--theme--primary-foreground);
-	border-radius: 50%;
-	width: 32px;
-	height: 32px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
+.header-center { display: flex; align-items: center; gap: 1rem; flex-shrink: 0; }
 
-.header-title {
-	color: var(--theme--foreground);
-	font-size: 1.25rem;
-	font-weight: 600;
-	margin: 0;
-}
+.program-selector { display: flex; align-items: center; gap: 0.5rem; min-width: 200px; width: 400px; }
+.program-selector label { font-size: 1rem; font-weight: 600; color: var(--theme--foreground); white-space: nowrap; }
+.program-selector .v-select { width: 300px; }
 
-.header-center {
-	display: flex;
-	align-items: center;
-	gap: 1rem;
-	flex-shrink: 0;
-}
-
-.program-selector {
-	display: flex;
-	align-items: center;
-	gap: 0.5rem;
-	min-width: 200px;
-	width: 400px;
-}
-
-.program-selector label {
-	font-size: 1rem;
-	font-weight: 600;
-	color: var(--theme--foreground);
-	white-space: nowrap;
-}
-
-.program-selector .v-select {
-	width: 300px;
-}
-
-/* Ensure dropdown text is visible */
-:deep(.v-select .v-field__input) {
-	color: var(--theme--foreground) !important;
-}
-
-:deep(.v-select .v-field__field) {
-	color: var(--theme--foreground) !important;
-}
-
-:deep(.v-select .v-select__selection-text) {
-	color: var(--theme--foreground) !important;
-}
-
-:deep(.v-list-item-title) {
-	color: var(--theme--foreground) !important;
-}
+:deep(.v-select .v-field__input),
+:deep(.v-select .v-field__field),
+:deep(.v-select .v-select__selection-text),
+:deep(.v-list-item-title) { color: var(--theme--foreground) !important; }
 </style>

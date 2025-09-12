@@ -25,7 +25,6 @@
 		"validate": "directus-extension validate"
 	},
 	"dependencies": {
-		"@directus-extensions/vue-flow-shared": "workspace:*",
 		"@vue-flow/background": "^1.0.2",
 		"@vue-flow/controls": "^1.0.6",
 		"@vue-flow/core": "^1.46.0",

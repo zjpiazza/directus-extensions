@@ -20,19 +20,11 @@ const handleOpenCollection = () => {
   }
 };
 
-const nodeIcon = computed(() => {
-  return props.data.subtype === 'form' ? '📄' : '▭';
-});
-
-const nodeColor = computed(() => {
-  return props.data.subtype === 'form' ? '#16a34a' : '#2563eb';
-});
+const nodeIcon = computed(() => (props.data.subtype === 'form' ? '📄' : '▭'));
+const nodeColor = computed(() => (props.data.subtype === 'form' ? '#16a34a' : '#2563eb'));
 
 const displayLabel = computed(() => {
-  // For form nodes, use formLabel if available, otherwise use the base label
-  if (props.data.subtype === 'form' && props.data.formLabel) {
-    return props.data.formLabel;
-  }
+  if (props.data.subtype === 'form' && props.data.formLabel) return props.data.formLabel;
   return props.data.label;
 });
 </script>
@@ -41,19 +33,15 @@ const displayLabel = computed(() => {
   <div class="process-node">
     <Handle id="top" type="target" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="target" :position="Position.Left" :is-connectable="true" />
-    <div class="node-content">
-      <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor }">
-        <span class="node-icon">{{ nodeIcon }}</span>
-        <span class="node-label">{{ displayLabel }}</span>
-        <button
-          v-if="props.data.subtype === 'form' && props.data.targetCollection"
-          class="open-collection-btn"
-          @click="handleOpenCollection"
-          title="Open collection"
-        >
-          🔗
-        </button>
-      </div>
+    <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor }">
+      <span class="node-icon">{{ nodeIcon }}</span>
+      <span class="node-label">{{ displayLabel }}</span>
+      <button
+        v-if="props.data.subtype === 'form' && props.data.targetCollection"
+        class="open-collection-btn"
+        @click="handleOpenCollection"
+        title="Open collection"
+      >🔗</button>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />
@@ -62,16 +50,10 @@ const displayLabel = computed(() => {
 
 <style scoped>
 .process-node {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.node-content {
-  display: flex;
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
 }
 
 .process-shape {
@@ -88,10 +70,7 @@ const displayLabel = computed(() => {
   transition: background .2s ease, border-color .2s ease, transform .15s ease;
 }
 
-.node-icon {
-  font-size: 16px;
-  flex-shrink: 0;
-}
+.node-icon { font-size: 16px; flex-shrink: 0; }
 
 .node-label {
   font-size: 14px;
@@ -115,14 +94,7 @@ const displayLabel = computed(() => {
   opacity: 0.7;
   transition: opacity 0.2s ease;
 }
+.open-collection-btn:hover { opacity: 1; background: rgba(0,0,0,0.1); }
 
-.open-collection-btn:hover {
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.1);
-}
-
-.process-shape:hover {
-  transform: translateY(-2px);
-  filter: brightness(0.9);
-}
+.process-shape:hover { transform: translateY(-2px); filter: brightness(0.9); }
 </style>

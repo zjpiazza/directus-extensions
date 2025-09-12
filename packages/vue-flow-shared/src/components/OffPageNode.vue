@@ -85,8 +85,8 @@ const handleClick = () => {
 	/* Pentagon/house shape using clip-path */
 	clip-path: polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%);
 	padding: 16px 20px;
-	min-width: 120px;
-	min-height: 60px;
+	width: 140px;
+	height: 100px;
 	text-align: center;
 	font-weight: 500;
 	cursor: pointer;

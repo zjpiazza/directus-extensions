@@ -95,11 +95,18 @@ function openCollection() {
 	border: 2px solid #1e3a8a;
 	border-radius: 6px; /* Sharp rectangle shape */
 	padding: 12px 16px;
-	min-width: 120px;
-	min-height: 60px;
+	width: 140px;
+	height: 80px;
+	box-sizing: border-box;
+	text-align: center;
+	font-weight: 500;
 	box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 	transition: all 0.2s ease;
 	cursor: pointer;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
 }
 
 .process-node:hover {
@@ -116,7 +123,6 @@ function openCollection() {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	margin-bottom: 4px;
 }
 
 .node-icon {

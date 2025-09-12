@@ -57,10 +57,11 @@ defineProps<Props>();
 	background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 	color: white;
 	border: 2px solid #047857;
-	border-radius: 50px; /* Perfect oval/ellipse shape */
-	padding: 12px 20px;
-	min-width: 120px;
-	min-height: 60px;
+	border-radius: 40px; /* Oval shape that fits the dimensions */
+	padding: 12px 16px;
+	width: 140px;
+	height: 80px;
+	box-sizing: border-box;
 	text-align: center;
 	font-weight: 500;
 	cursor: pointer;

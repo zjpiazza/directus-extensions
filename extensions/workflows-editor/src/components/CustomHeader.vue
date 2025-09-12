@@ -100,7 +100,7 @@ const breadcrumbs = computed(() => {
           :to="`/content/${collection}`"
           class="back-button btn btn-secondary"
         >
-          <span class="icon">←</span>
+          <v-icon name="arrow_back" />
         </router-link>
 
         <div class="title-section">
@@ -123,7 +123,7 @@ const breadcrumbs = computed(() => {
           class="btn btn-secondary"
           @click="$emit('refresh')"
         >
-          <span class="icon">🔄</span>
+          <v-icon name="refresh" />
           Refresh
         </button>
 
@@ -132,7 +132,7 @@ const breadcrumbs = computed(() => {
           class="btn btn-primary"
           @click="handleModeChange('edit')"
         >
-          <span class="icon">✏️</span>
+          <v-icon name="edit" />
           Edit
         </button>
 
@@ -141,7 +141,7 @@ const breadcrumbs = computed(() => {
           class="btn btn-secondary"
           @click="handleModeChange('view')"
         >
-          <span class="icon">👁️</span>
+          <v-icon name="visibility" />
           View
         </button>
 
@@ -150,7 +150,7 @@ const breadcrumbs = computed(() => {
           class="btn btn-warning"
           @click="toggleFollowMode(false)"
         >
-          <span class="icon">🎯</span>
+          <v-icon name="gps_fixed" />
           Exit Follow
         </button>
 
@@ -159,7 +159,7 @@ const breadcrumbs = computed(() => {
           class="btn btn-secondary"
           @click="toggleFollowMode(true)"
         >
-          <span class="icon">🎯</span>
+          <v-icon name="gps_fixed" />
           Follow Mode
         </button>
 
@@ -170,7 +170,7 @@ const breadcrumbs = computed(() => {
           :disabled="saving || (!hasEdits && !(props.isNew && flowName && flowName.trim().length > 0))"
           @click="$emit('save')"
         >
-          <span class="icon">💾</span>
+          <v-icon name="save" />
           {{ saving ? (props.isNew ? 'Creating...' : 'Saving...') : (props.isNew ? 'Create' : 'Save') }}
         </button>
       </div>

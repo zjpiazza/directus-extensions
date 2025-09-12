@@ -581,7 +581,7 @@ const onConnectEnd = (event: any) => {
 };
 
 const onConnect = (connection: Connection) => {
-  debugLog('🎯 onConnect TRIGGERED with connection:', connection);
+  debugLog('onConnect: TRIGGERED with connection:', connection);
   debugLog('Connection details:', {
     source: connection.source,
     target: connection.target,

@@ -86,7 +86,7 @@ const navigateToWorkflow = (workflowId: string) => {
           class="btn btn-secondary"
           @click="showDescriptionModal(true)"
         >
-          <span class="icon">✏️</span>
+          <v-icon name="edit" />
           {{ (edits.description || item?.description) ? 'Edit Description' : 'Add Description' }}
         </button>
       </div>
@@ -207,7 +207,7 @@ const navigateToWorkflow = (workflowId: string) => {
             class="btn btn-danger block"
             @click="deleteSelectedNode"
           >
-            <span class="icon">🗑️</span>
+            <v-icon name="delete" />
             Delete Node
           </button>
         </div>
@@ -254,7 +254,7 @@ const navigateToWorkflow = (workflowId: string) => {
             class="btn btn-danger block"
             @click="deleteSelectedEdge"
           >
-            <span class="icon">🗑️</span>
+            <v-icon name="delete" />
             Delete Edge
           </button>
         </div>

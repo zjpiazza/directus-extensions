@@ -970,6 +970,15 @@ watch(flowEdges, (newEdges, oldEdges) => {
           <!-- Background with grid -->
           <Background pattern="dots" :gap="20" :size="1" color="#aaa" />
         </VueFlow>
+
+        <!-- Off-page References Legend (visible in view mode) -->
+        <div v-if="isViewMode && usedWorkflowIds.length > 0" class="canvas-legend">
+          <WorkflowLegend
+            :workflows="availableWorkflows"
+            :used-workflow-ids="usedWorkflowIds"
+            @navigate-to-workflow="handleNavigateToWorkflow"
+          />
+        </div>
       </div>
 
       <!-- Details Sidebar -->
@@ -1179,5 +1188,19 @@ watch(flowEdges, (newEdges, oldEdges) => {
 
 .expand-btn-right {
   right: 8px;
+}
+
+/* Canvas legend positioning */
+.canvas-legend {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  max-width: 300px;
+  opacity: 0.95;
+}
+
+.canvas-legend:hover {
+  opacity: 1;
 }
 </style>

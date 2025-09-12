@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import type { Node, Edge } from '@vue-flow/core';
+import WorkflowLegend from './WorkflowLegend.vue';
 
 interface Collection {
   value: string;
@@ -20,7 +22,8 @@ interface Props {
   availableWorkflows: Workflow[];
   edits: Record<string, any>;
   item: Record<string, any> | null;
-  showDescriptionModal: boolean;
+  usedWorkflowIds: string[];
+  onToggle?: () => void;
 }
 
 const props = defineProps<Props>();
@@ -31,8 +34,8 @@ const emit = defineEmits<{
   'update-off-page-target': [workflowId: string];
   'delete-selected-node': [];
   'delete-selected-edge': [];
-  'show-description-modal': [show: boolean];
   'navigate-to-workflow': [workflowId: string];
+  'toggle': [];
 }>();
 
 const updateNodeData = () => {
@@ -55,47 +58,114 @@ const deleteSelectedEdge = () => {
   emit('delete-selected-edge');
 };
 
-const showDescriptionModal = (show: boolean) => {
-  emit('show-description-modal', show);
+// Local state for description editing
+const isEditingDescription = ref(false);
+const localDescription = ref('');
+
+const startEditingDescription = () => {
+  // Initialize local description with current value from edits or item
+  localDescription.value = props.edits.description || props.item?.description || '';
+  isEditingDescription.value = true;
+};
+
+const stopEditingDescription = () => {
+  // Save the local description back to edits
+  if (!props.edits.description) {
+    props.edits.description = localDescription.value;
+  }
+  isEditingDescription.value = false;
+};
+
+const updateDescription = (value: string) => {
+  localDescription.value = value;
+  // Update edits in real-time
+  props.edits.description = value;
 };
 
 const navigateToWorkflow = (workflowId: string) => {
   emit('navigate-to-workflow', workflowId);
 };
+
+const handleToggle = () => {
+  emit('toggle');
+};
 </script>
 
 <template>
   <div class="details-sidebar">
-    <!-- Flow Description Section -->
-    <div class="sidebar-section">
-      <h3>Flow Description</h3>
-      <div class="description-preview">
-        <p
-          v-if="edits.description || item?.description"
-          class="description-text"
-        >
-          {{ (edits.description ?? item?.description ?? '').substring(0, 100) }}{{
-            (edits.description ?? item?.description ?? '').length > 100 ? '...' : ''
-          }}
-        </p>
-        <p v-else class="description-placeholder">
-          No description yet
-        </p>
-        <button
-          v-if="isEditMode"
-          class="btn btn-secondary"
-          @click="showDescriptionModal(true)"
-        >
-          <v-icon name="edit" />
-          {{ (edits.description || item?.description) ? 'Edit Description' : 'Add Description' }}
-        </button>
-      </div>
+    <!-- Sidebar Header with Collapse Button at top level -->
+    <div class="sidebar-header">
+      <h2>Details</h2>
+      <button
+        class="collapse-btn"
+        @click="handleToggle"
+        title="Collapse sidebar"
+      >
+        <v-icon name="chevron_right" />
+      </button>
     </div>
 
-    <!-- Node Details Section -->
+    <!-- Dynamic Content Based on Selection -->
     <div class="sidebar-section">
-      <h3>{{ selectedNode ? 'Node Details' : selectedEdge ? 'Edge Details' : 'Node Details' }}</h3>
-      <div v-if="selectedNode" class="node-properties">
+      <!-- Workflow Legend (shown when nothing is selected and there are off-page connectors) -->
+      <WorkflowLegend
+        v-if="!selectedNode && !selectedEdge"
+        :workflows="availableWorkflows"
+        :used-workflow-ids="usedWorkflowIds"
+        @navigate-to-workflow="navigateToWorkflow"
+      />
+
+      <!-- Flow Description Section (shown when nothing is selected) -->
+      <div v-if="!selectedNode && !selectedEdge">
+        <h3>Flow Description</h3>
+        <div class="description-section">
+          <!-- View Mode or when not editing -->
+          <div v-if="!isEditingDescription" class="description-display">
+            <div 
+              v-if="edits.description || item?.description"
+              class="description-text-scrollable"
+            >
+              {{ edits.description || item?.description }}
+            </div>
+            <p v-else class="description-placeholder">
+              No description yet
+            </p>
+            <button
+              v-if="isEditMode"
+              class="btn btn-secondary description-edit-btn"
+              @click="startEditingDescription"
+            >
+              <v-icon name="edit" />
+              {{ (edits.description || item?.description) ? 'Edit Description' : 'Add Description' }}
+            </button>
+          </div>
+          
+          <!-- Edit Mode - Scrollable textarea -->
+          <div v-else class="description-edit">
+            <textarea
+              v-model="localDescription"
+              class="description-textarea-scrollable"
+              placeholder="Enter workflow description..."
+              @input="updateDescription($event.target.value)"
+              @keydown.esc="stopEditingDescription"
+              @blur="stopEditingDescription"
+            />
+            <div class="description-edit-actions">
+              <button
+                class="btn btn-secondary btn-sm"
+                @click="stopEditingDescription"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Node Details Section (shown when a node is selected) -->
+      <div v-else-if="selectedNode">
+        <h3>Node Details</h3>
+        <div class="node-properties">
         <div class="property-group">
           <label>Label</label>
           <input
@@ -211,57 +281,57 @@ const navigateToWorkflow = (workflowId: string) => {
             Delete Node
           </button>
         </div>
+        </div> <!-- closing .node-properties -->
       </div>
       
-      <!-- Edge Details Section -->
-      <div v-else-if="selectedEdge" class="edge-properties">
-        <div class="property-group">
-          <label>Edge ID</label>
-          <input
-            :value="selectedEdge.id"
-            readonly
-            class="input-field"
-          />
-        </div>
-        <div class="property-group">
-          <label>Source Node</label>
-          <input
-            :value="selectedEdge.source"
-            readonly
-            class="input-field"
-          />
-        </div>
-        <div class="property-group">
-          <label>Target Node</label>
-          <input
-            :value="selectedEdge.target"
-            readonly
-            class="input-field"
-          />
-        </div>
-        <div class="property-group">
-          <label>Edge Type</label>
-          <input
-            :value="selectedEdge.type || 'step'"
-            readonly
-            class="input-field"
-          />
-        </div>
+      <!-- Edge Details Section (shown when an edge is selected) -->
+      <div v-else-if="selectedEdge">
+        <h3>Edge Details</h3>
+        <div class="edge-properties">
+          <div class="property-group">
+            <label>Edge ID</label>
+            <input
+              :value="selectedEdge.id"
+              readonly
+              class="input-field"
+            />
+          </div>
+          <div class="property-group">
+            <label>Source Node</label>
+            <input
+              :value="selectedEdge.source"
+              readonly
+              class="input-field"
+            />
+          </div>
+          <div class="property-group">
+            <label>Target Node</label>
+            <input
+              :value="selectedEdge.target"
+              readonly
+              class="input-field"
+            />
+          </div>
+          <div class="property-group">
+            <label>Edge Type</label>
+            <input
+              :value="selectedEdge.type || 'step'"
+              readonly
+              class="input-field"
+            />
+          </div>
 
-        <!-- Delete Edge Button (only in edit mode) -->
-        <div v-if="isEditMode" class="property-group">
-          <button
-            class="btn btn-danger block"
-            @click="deleteSelectedEdge"
-          >
-            <v-icon name="delete" />
-            Delete Edge
-          </button>
+          <!-- Delete Edge Button (only in edit mode) -->
+          <div v-if="isEditMode" class="property-group">
+            <button
+              class="btn btn-danger block"
+              @click="deleteSelectedEdge"
+            >
+              <v-icon name="delete" />
+              Delete Edge
+            </button>
+          </div>
         </div>
-      </div>
-      
-      <div v-else class="no-selection">
-        <p>Select a node or edge to edit its properties</p>
       </div>
     </div>
   </div>
@@ -271,13 +341,28 @@ const navigateToWorkflow = (workflowId: string) => {
 .details-sidebar {
   background: var(--theme--background-subdued, #f8f9fa);
   border-left: 1px solid var(--theme--border-color, #e1e5e9);
-  padding: 1rem;
+  padding: 0.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   z-index: 10;
   width: 300px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  color: var(--theme--foreground, #1a1a1a);
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .sidebar-section {
@@ -287,10 +372,42 @@ const navigateToWorkflow = (workflowId: string) => {
   border: 1px solid var(--theme--border-color, #e1e5e9);
 }
 
-.sidebar-section h3 {
-  margin: 0 0 1rem 0;
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.sidebar-header h3 {
+  margin: 0;
   color: var(--theme--foreground, #1a1a1a);
   font-size: 1rem;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: var(--theme--foreground-subdued, #6c757d);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  width: 24px;
+  height: 24px;
+}
+
+.collapse-btn:hover {
+  background: var(--theme--background-accent, #f0f2f5);
+  color: var(--theme--foreground, #1a1a1a);
+}
+
+.collapse-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
 }
 
 .description-preview {
@@ -308,6 +425,80 @@ const navigateToWorkflow = (workflowId: string) => {
   background: var(--theme--background-subdued, #f8f9fa);
   border-radius: 4px;
   border: 1px solid var(--theme--border-color-subdued, #e1e5e9);
+}
+
+.description-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.description-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.description-text-scrollable {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--theme--foreground, #1a1a1a);
+  margin: 0;
+  padding: 0.75rem;
+  background: var(--theme--background-subdued, #f8f9fa);
+  border-radius: 4px;
+  border: 1px solid var(--theme--border-color-subdued, #e1e5e9);
+  max-height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.description-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.description-textarea-scrollable {
+  width: 100%;
+  min-height: 100px;
+  max-height: 200px;
+  padding: 0.75rem;
+  border: 1px solid var(--theme--border-color, #e0e0e0);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--theme--foreground, #333);
+  background: var(--theme--background, #ffffff);
+  resize: vertical;
+  overflow-y: auto;
+  transition: border-color 0.2s;
+}
+
+.description-textarea-scrollable:focus {
+  outline: none;
+  border-color: var(--theme--primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.description-textarea-scrollable::placeholder {
+  color: var(--theme--foreground-subdued, #999);
+}
+
+.description-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.description-edit-btn {
+  align-self: flex-start;
+}
+
+.btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .description-placeholder {

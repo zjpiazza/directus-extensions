@@ -23,7 +23,6 @@ const emit = defineEmits<{
   save: [];
   delete: [];
   archive: [];
-  refresh: [];
   'save-as-copy': [];
   'update-flow-name': [value: string];
   'update-mode': [mode: 'edit' | 'view'];
@@ -118,50 +117,33 @@ const breadcrumbs = computed(() => {
       </div>
 
       <div class="header-actions">
-        <button
-          v-if="canEdit"
-          class="btn btn-secondary"
-          @click="$emit('refresh')"
-        >
-          <v-icon name="refresh" />
-          Refresh
-        </button>
-
-        <button
-          v-if="mode === 'view' && canEdit"
-          class="btn btn-primary"
-          @click="handleModeChange('edit')"
-        >
-          <v-icon name="edit" />
-          Edit
-        </button>
-
-        <button
-          v-if="mode === 'edit'"
-          class="btn btn-secondary"
-          @click="handleModeChange('view')"
-        >
-          <v-icon name="visibility" />
-          View
-        </button>
-
-        <button
-          v-if="followMode"
-          class="btn btn-warning"
-          @click="toggleFollowMode(false)"
-        >
-          <v-icon name="gps_fixed" />
-          Exit Follow
-        </button>
-
-        <button
-          v-else
-          class="btn btn-secondary"
-          @click="toggleFollowMode(true)"
-        >
-          <v-icon name="gps_fixed" />
-          Follow Mode
-        </button>
+        <!-- Mode Button Group -->
+        <div class="mode-button-group">
+          <button
+            class="mode-btn"
+            :class="{ active: mode === 'edit' && !followMode }"
+            @click="handleModeChange('edit'); toggleFollowMode(false)"
+          >
+            <v-icon name="edit" />
+            Edit
+          </button>
+          <button
+            class="mode-btn"
+            :class="{ active: mode === 'view' && !followMode }"
+            @click="handleModeChange('view'); toggleFollowMode(false)"
+          >
+            <v-icon name="visibility" />
+            View
+          </button>
+          <button
+            class="mode-btn follow-btn"
+            :class="{ active: followMode }"
+            @click="toggleFollowMode(true)"
+          >
+            <v-icon name="gps_fixed" />
+            Follow
+          </button>
+        </div>
 
         <button
           v-if="canEdit"
@@ -409,5 +391,67 @@ const breadcrumbs = computed(() => {
 .error-item {
   color: var(--theme--danger, #dc3545);
   font-size: 0.875rem;
+}
+
+/* Mode button group styles */
+.mode-button-group {
+  display: flex;
+  border: 1px solid var(--theme--border-color, #e1e5e9);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--theme--background, white);
+}
+
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  border: none;
+  background: var(--theme--background, white);
+  color: var(--theme--foreground-subdued, #6c757d);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border-radius: 0;
+}
+
+/* First button gets left radius */
+.mode-btn:first-child {
+  border-top-left-radius: 5px;
+  border-bottom-left-radius: 5px;
+}
+
+/* Last button gets right radius */
+.mode-btn:last-child {
+  border-top-right-radius: 5px;
+  border-bottom-right-radius: 5px;
+}
+
+/* Middle button has no radius */
+.mode-btn:not(:first-child):not(:last-child) {
+  border-radius: 0;
+}
+
+.mode-btn:not(:last-child) {
+  border-right: 1px solid var(--theme--border-color, #e1e5e9);
+}
+
+.mode-btn:hover:not(.active) {
+  background: var(--theme--background-accent, #f8f9fa);
+  color: var(--theme--foreground, #1a1a1a);
+}
+
+.mode-btn.active {
+  background: var(--theme--primary, #0066cc);
+  color: white;
+  font-weight: 600;
+}
+
+.mode-btn:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(0, 102, 204, 0.3);
 }
 </style>

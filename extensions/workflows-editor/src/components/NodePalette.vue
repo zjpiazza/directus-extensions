@@ -9,12 +9,14 @@ interface NodeType {
 interface Props {
   isEditMode: boolean;
   nodeTypes: NodeType[];
+  onToggle?: () => void;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   'drag-start': [event: DragEvent, nodeType: NodeType];
+  'toggle': [];
 }>();
 
 const onDragStart = (event: DragEvent, nodeType: NodeType) => {
@@ -24,11 +26,24 @@ const onDragStart = (event: DragEvent, nodeType: NodeType) => {
   }
   emit('drag-start', event, nodeType);
 };
+
+const handleToggle = () => {
+  emit('toggle');
+};
 </script>
 
 <template>
   <div v-if="isEditMode" class="node-palette">
-    <h3>Node Types</h3>
+    <div class="palette-header">
+      <button
+        class="collapse-btn"
+        @click="handleToggle"
+        title="Collapse panel"
+      >
+        <v-icon name="chevron_left" />
+      </button>
+      <h3>Node Types</h3>
+    </div>
     <div class="node-types">
       <div
         v-for="nodeType in nodeTypes"
@@ -55,11 +70,43 @@ const onDragStart = (event: DragEvent, nodeType: NodeType) => {
   width: 250px;
 }
 
-.node-palette h3 {
-  margin: 0 0 1.5rem 0;
+.palette-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.palette-header h3 {
+  margin: 0;
   color: var(--theme--foreground, #1a1a1a);
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+.collapse-btn {
+  background: none;
+  border: none;
+  color: var(--theme--foreground-subdued, #6c757d);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  width: 24px;
+  height: 24px;
+}
+
+.collapse-btn:hover {
+  background: var(--theme--background-accent, #f0f2f5);
+  color: var(--theme--foreground, #1a1a1a);
+}
+
+.collapse-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
 }
 
 .node-types {

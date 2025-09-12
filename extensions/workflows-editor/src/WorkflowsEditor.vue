@@ -10,6 +10,7 @@ import { Background } from '@vue-flow/background';
 import CustomHeader from './components/CustomHeader.vue';
 import NodePalette from './components/NodePalette.vue';
 import DetailsSidebar from './components/DetailsSidebar.vue';
+import WorkflowLegend from './components/WorkflowLegend.vue';
 
 // Import your custom node components
 import TerminalNode from './flow-nodes/TerminalNode.vue';
@@ -19,6 +20,9 @@ import OffPageNode from './flow-nodes/OffPageNode.vue';
 
 // Import composables
 import { useWorkflowData } from './composables/useWorkflowData';
+
+// Import shared injection keys
+import { WORKFLOWS_KEY, CURRENT_WORKFLOW_ID_KEY, IS_EDIT_MODE_KEY } from './constants/injection-keys';
 
 // Define types for Directus (simplified for now)
 interface Field {
@@ -59,7 +63,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:edits': [value: Record<string, any>];
   save: [];
-  refresh: [];
   delete: [];
   archive: [];
   'save-as-copy': [];
@@ -78,10 +81,6 @@ const canEdit = computed(() => {
 // Manual save logic (parent form lifecycle not handling persistence for this editor type)
 import { useApi } from '@directus/extensions-sdk';
 const api = useApi();
-
-// Provide keys
-const WORKFLOWS_KEY = Symbol('workflows-list');
-const CURRENT_WORKFLOW_ID_KEY = Symbol('current-workflow-id');
 
 // Basic notification shim (adjust if real notifications composable becomes available)
 const notifications = {
@@ -131,16 +130,27 @@ const updateNodeData = () => {
 // Add selectedEdge state
 const selectedEdge = ref<Edge | null>(null);
 
-// Mode-based behavior
-const isEditMode = computed(() => props.mode === 'edit');
-const isViewMode = computed(() => props.mode === 'view');
+// Mode-based behavior - add internal state as fallback
+const internalMode = ref<'edit' | 'view'>(props.mode || 'edit');
+const isEditMode = computed(() => internalMode.value === 'edit');
+const isViewMode = computed(() => internalMode.value === 'view');
+
+// Watch for prop changes but allow internal override
+watch(() => props.mode, (newMode) => {
+  if (newMode && newMode !== internalMode.value) {
+    internalMode.value = newMode;
+  }
+}, { immediate: true });
 
 // Follow mode state
 const followMode = ref(false);
 const focusedNodeId = ref<string | null>(null);
 const availableCollections = ref<any[]>([]);
 const availableWorkflows = ref<Array<{ id: string; name: string }>>([]);
-const showDescriptionModal = ref(false);
+
+// Panel visibility state
+const showNodePalette = ref(true);
+const showDetailsSidebar = ref(true);
 
 // Node types for the palette
 const nodeTypes = [
@@ -148,7 +158,7 @@ const nodeTypes = [
   { type: 'process', subtype: 'task', label: 'Task', icon: 'task' },
   { type: 'process', subtype: 'form', label: 'Form', icon: 'description' },
   { type: 'decision', label: 'Decision', icon: 'help' },
-  { type: 'offpage', label: 'Off-page Connector', icon: 'home' },
+  { type: 'offpage', label: 'Off-page Connector', icon: 'link' },
 ];
 
 // Vue Flow composable
@@ -179,6 +189,14 @@ const hasChanges = computed(() => {
     if (diverged) return true;
   } catch {}
   return false;
+});
+
+// Computed property to get workflow IDs used in off-page connectors
+const usedWorkflowIds = computed(() => {
+  return flowNodes.value
+    .filter(node => node.type === 'offpage' && node.data.targetWorkflowId)
+    .map(node => node.data.targetWorkflowId)
+    .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
 });
 
 // Local flow name state to prevent blanking after save
@@ -222,6 +240,11 @@ const saveFlow = async () => {
     // Always include a name (edits -> item -> fallback)
     const nameValue = flowName.value?.trim() || (props.edits as any).name || props.item?.name || 'Untitled Workflow';
     payload.name = nameValue;
+
+    // Include description if it exists in edits
+    if (props.edits?.description !== undefined) {
+      payload.description = props.edits.description;
+    }
 
     const isCreate = props.isNew || !props.primaryKey || props.primaryKey === '+';
     if (!isCreate && !props.primaryKey) throw new Error('Missing primary key for update operation');
@@ -269,6 +292,7 @@ const handleUpdateFlowName = (name: string) => {
 };
 
 const handleModeChange = (newMode: 'edit' | 'view') => {
+  internalMode.value = newMode;
   emit('update:mode', newMode);
 };
 
@@ -295,6 +319,15 @@ const toggleFollowMode = (enabled: boolean) => {
     });
     focusedNodeId.value = null;
   }
+};
+
+// Panel toggle functions
+const toggleNodePalette = () => {
+  showNodePalette.value = !showNodePalette.value;
+};
+
+const toggleDetailsSidebar = () => {
+  showDetailsSidebar.value = !showDetailsSidebar.value;
 };
 
 const focusOnNode = (nodeId: string) => {
@@ -487,6 +520,12 @@ const onNodeClick = (event: { node: Node }) => {
 const onEdgeClick = (event: { edge: Edge }) => {
   selectedEdge.value = event.edge;
   selectedNode.value = null; // Clear node selection when edge is selected
+};
+
+const onPaneClick = () => {
+  // Clear both node and edge selection when clicking on empty canvas
+  selectedNode.value = null;
+  selectedEdge.value = null;
 };
 
 const updateFormCollection = (collectionName: string) => {
@@ -745,6 +784,7 @@ watch(() => props.primaryKey, () => {
 
 provide(WORKFLOWS_KEY, availableWorkflows);
 provide(CURRENT_WORKFLOW_ID_KEY, computed(() => props.primaryKey?.toString() || null));
+provide(IS_EDIT_MODE_KEY, isEditMode);
 
 // Lifecycle hooks
 onMounted(() => {
@@ -838,13 +878,12 @@ watch(flowEdges, (newEdges, oldEdges) => {
       :item="props.item"
       :validation-errors="props.validationErrors"
       :flow-name="flowName"
-      :mode="props.mode || 'edit'"
+      :mode="internalMode"
       :can-edit="canEdit"
       :follow-mode="followMode"
       @save="saveFlow"
       @delete="() => emit('delete')"
       @archive="() => emit('archive')"
-      @refresh="() => emit('refresh')"
       @save-as-copy="() => emit('save-as-copy')"
       @update-flow-name="handleUpdateFlowName"
       @update-mode="handleModeChange"
@@ -852,12 +891,14 @@ watch(flowEdges, (newEdges, oldEdges) => {
     />
 
     <!-- Main Editor Layout -->
-    <div class="editor-layout">
+    <div class="editor-layout" :class="{ 'show-node-palette': showNodePalette, 'show-details-sidebar': showDetailsSidebar }">
       <!-- Node Palette -->
       <NodePalette
+        v-if="showNodePalette && isEditMode"
         :is-edit-mode="isEditMode"
         :node-types="nodeTypes"
         @drag-start="onDragStart"
+        @toggle="toggleNodePalette"
       />
 
       <!-- Vue Flow Canvas -->
@@ -868,6 +909,25 @@ watch(flowEdges, (newEdges, oldEdges) => {
         @dragover="onDragOver"
         @dragleave="onDragLeave"
       >
+        <!-- Expand buttons for collapsed panels -->
+        <button
+          v-if="!showNodePalette && isEditMode"
+          class="expand-btn expand-btn-left"
+          @click="toggleNodePalette"
+          title="Show node palette"
+        >
+          <v-icon name="chevron_right" />
+        </button>
+
+        <button
+          v-if="!showDetailsSidebar && isEditMode"
+          class="expand-btn expand-btn-right"
+          @click="toggleDetailsSidebar"
+          title="Show details sidebar"
+        >
+          <v-icon name="chevron_left" />
+        </button>
+
         <VueFlow
           v-model:nodes="flowNodes"
           v-model:edges="flowEdges"
@@ -885,7 +945,7 @@ watch(flowEdges, (newEdges, oldEdges) => {
           :nodes-connectable="isEditMode"
           :connection-line-style="{ strokeWidth: 2, stroke: '#0066cc' }"
           :connection-line-type="'bezier'"
-          :elements-selectable="true"
+          :elements-selectable="isEditMode"
           :default-viewport="{ x: 0, y: 0, zoom: 1 }"
           :min-zoom="0.1"
           :max-zoom="4"
@@ -898,6 +958,7 @@ watch(flowEdges, (newEdges, oldEdges) => {
           :zoom-on-double-click="false"
           @node-click="onNodeClick"
           @edge-click="onEdgeClick"
+          @pane-click="onPaneClick"
           @connect="onConnect"
           @edge-update="isEditMode ? onEdgeUpdate : () => {}"
           @connect-start="onConnectStart"
@@ -912,24 +973,25 @@ watch(flowEdges, (newEdges, oldEdges) => {
       </div>
 
       <!-- Details Sidebar -->
-        <DetailsSidebar
-          :is-edit-mode="isEditMode"
-          :is-view-mode="isViewMode"
-          :selected-node="selectedNode"
-          :selected-edge="selectedEdge"
-          :available-collections="availableCollections"
-          :available-workflows="availableWorkflows"
-          :edits="props.edits"
-          :item="props.item"
-          :show-description-modal="showDescriptionModal"
-          @update-node-data="updateNodeData"
-          @update-form-collection="updateFormCollection"
-          @update-off-page-target="updateOffPageTarget"
-          @delete-selected-node="deleteSelectedNode"
-          @delete-selected-edge="deleteSelectedEdge"
-          @show-description-modal="(value: boolean) => (showDescriptionModal.value = value)"
-          @navigate-to-workflow="handleNavigateToWorkflow"
-        />
+      <DetailsSidebar
+        v-if="showDetailsSidebar && isEditMode"
+        :is-edit-mode="isEditMode"
+        :is-view-mode="isViewMode"
+        :selected-node="selectedNode"
+        :selected-edge="selectedEdge"
+        :available-collections="availableCollections"
+        :available-workflows="availableWorkflows"
+        :used-workflow-ids="usedWorkflowIds"
+        :edits="props.edits"
+        :item="props.item"
+        @update-node-data="updateNodeData"
+        @update-form-collection="updateFormCollection"
+        @update-off-page-target="updateOffPageTarget"
+        @delete-selected-node="deleteSelectedNode"
+        @delete-selected-edge="deleteSelectedEdge"
+        @navigate-to-workflow="handleNavigateToWorkflow"
+        @toggle="toggleDetailsSidebar"
+      />
     </div>
   </div>
 </template>
@@ -956,11 +1018,24 @@ watch(flowEdges, (newEdges, oldEdges) => {
   grid-template-columns: 250px 1fr 300px;
   height: calc(100vh - 150px); /* Adjust based on new header height with breadcrumbs */
   overflow: hidden;
+  transition: grid-template-columns 0.3s ease;
 }
 
-/* View mode layout without node palette */
-.editor-layout:has(.canvas-container.full-width) {
+/* Dynamic panel visibility layouts */
+.editor-layout:not(.show-node-palette):not(.show-details-sidebar) {
+  grid-template-columns: 1fr;
+}
+
+.editor-layout:not(.show-node-palette).show-details-sidebar {
   grid-template-columns: 1fr 300px;
+}
+
+.editor-layout.show-node-palette:not(.show-details-sidebar) {
+  grid-template-columns: 250px 1fr;
+}
+
+.editor-layout.show-node-palette.show-details-sidebar {
+  grid-template-columns: 250px 1fr 300px;
 }
 
 .canvas-container {
@@ -1064,5 +1139,45 @@ watch(flowEdges, (newEdges, oldEdges) => {
   opacity: 1;
   width: 12px;
   height: 12px;
+}
+
+/* Expand buttons for collapsed panels */
+.expand-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--theme--background, white);
+  border: 1px solid var(--theme--border-color, #e1e5e9);
+  border-radius: 4px;
+  color: var(--theme--foreground-subdued, #6c757d);
+  cursor: pointer;
+  padding: 0.5rem;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.expand-btn:hover {
+  background: var(--theme--background-accent, #f8f9fa);
+  color: var(--theme--foreground, #1a1a1a);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.expand-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+}
+
+.expand-btn-left {
+  left: 8px;
+}
+
+.expand-btn-right {
+  right: 8px;
 }
 </style>

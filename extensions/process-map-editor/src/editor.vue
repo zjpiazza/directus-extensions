@@ -15,13 +15,17 @@
 				v-else
 				v-model:nodes="flowNodes"
 				v-model:edges="flowEdges"
+				:nodes-draggable="isEditMode"
+				:nodes-connectable="isEditMode"
+				:edges-updatable="isEditMode"
 				snap-to-grid
 				:snap-grid="[20, 20]"
-				:zoom-on-scroll="true"
-				:zoom-on-pinch="true"
+				:zoom-on-scroll="isEditMode"
+				:zoom-on-pinch="isEditMode"
 				:zoom-on-double-click="false"
 				:pan-on-scroll="false"
 				:pan-on-scroll-mode="PanOnScrollMode.Free"
+				:pan-on-drag="isEditMode"
 				:min-zoom="0.1"
 				:max-zoom="4"
 				:fit-view-on-init="true"
@@ -39,7 +43,7 @@
 				</template>
 
 				<!-- Background -->
-				<Background pattern-color="#e5e7eb" :gap="20" />
+				<Background pattern="dots" :gap="20" :size="1" color="var(--theme--border-color)" />
 				
 				<!-- Custom SVG separator line overlay -->
 				<div class="separator-overlay">
@@ -93,13 +97,13 @@
 							<button @click="fitView" class="control-icon" title="Fit View">
 								<v-icon name="center_focus_strong" />
 							</button>
-							<button @click="resetToDefaultLayout" class="control-icon" title="Reset Layout">
+							<button @click="resetToDefaultLayout" :disabled="!isEditMode" class="control-icon" :title="isEditMode ? 'Reset Layout' : 'Reset Layout (Edit Mode Only)'">
 								<v-icon name="restart_alt" />
 							</button>
-							<button @click="zoomOut" class="control-icon" title="Zoom Out">
+							<button @click="zoomOut" :disabled="!isEditMode" class="control-icon" :title="isEditMode ? 'Zoom Out' : 'Zoom Out (Edit Mode Only)'">
 								<v-icon name="remove" />
 							</button>
-							<button @click="zoomIn" class="control-icon" title="Zoom In">
+							<button @click="zoomIn" :disabled="!isEditMode" class="control-icon" :title="isEditMode ? 'Zoom In' : 'Zoom In (Edit Mode Only)'">
 								<v-icon name="add" />
 							</button>
 						</div>
@@ -338,6 +342,8 @@ const selectedProgram = ref<string | number | null>(null);
 
 // Workflow links data
 const workflowLinks = ref<Array<any>>([]);
+// Map program ID -> { phaseId -> workflows[] }
+const programWorkflowLinks = ref<Record<string, Record<string, any[]>>>({});
 
 // Workflow management
 const showAddWorkflowModal = ref(false);
@@ -385,6 +391,8 @@ async function freezeCurrentState() {
 		const viewport = getViewport();
 		
 		// Prepare the complete state data
+		// Ensure current phases are synced into program map before save
+		syncProgramFromPhases();
 		const completeState = {
 			nodes: flowNodes.value.map(node => ({
 				id: node.id,
@@ -414,6 +422,8 @@ async function freezeCurrentState() {
 				acc[phase.id] = phase.workflows || [];
 				return acc;
 			}, {} as Record<string, any[]>),
+			// Also persist per-program mappings for fast switching
+			programWorkflowLinks: programWorkflowLinks.value,
 			viewport: {
 				x: viewport.x,
 				y: viewport.y,
@@ -472,13 +482,21 @@ async function loadSavedState() {
 			}
 			
 			// Load workflow links from saved state
-			if (savedData.workflowLinks) {
-				loadWorkflowLinksFromState(savedData.workflowLinks);
+			if (savedData.programWorkflowLinks) {
+				programWorkflowLinks.value = savedData.programWorkflowLinks;
+				applyPhasesForCurrentProgram();
+			} else if (savedData.workflowLinks) {
+				// Backward compatibility: single set of workflow links not per program
+				programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
+				applyPhasesForCurrentProgram();
 			} else if (savedData.phases) {
+				// Backward compatibility: phases array
 				phases.value = savedData.phases;
+				syncProgramFromPhases();
 			} else {
 				// Initialize with default phases if no saved data
 				initializeDefaultPhases();
+				syncProgramFromPhases();
 			}
 			
 			if (savedData.viewport) {
@@ -512,12 +530,19 @@ async function loadSavedState() {
 				}
 				
 				// Load workflow links from saved state
-				if (savedData.workflowLinks) {
-					loadWorkflowLinksFromState(savedData.workflowLinks);
+				if (savedData.programWorkflowLinks) {
+					programWorkflowLinks.value = savedData.programWorkflowLinks;
+					applyPhasesForCurrentProgram();
+				} else if (savedData.workflowLinks) {
+					// Backward compatibility: single set of workflow links not per program
+					programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
+					applyPhasesForCurrentProgram();
 				} else if (savedData.phases) {
 					phases.value = savedData.phases;
+					syncProgramFromPhases();
 				} else {
 					initializeDefaultPhases();
+					syncProgramFromPhases();
 				}
 				
 				if (savedData.viewport) {
@@ -563,11 +588,23 @@ async function fetchPrograms() {
 	}
 }
 
+// Keep UI in sync when selected program changes externally (e.g., from props)
+watch(() => selectedProgram.value, () => {
+	applyPhasesForCurrentProgram();
+});
+
 // Handle program selection change
 async function onProgramChange(programId: string | number) {
+	// Save current program state into map
+	syncProgramFromPhases();
+	// Switch program
 	selectedProgram.value = programId;
 	console.log('Selected program:', programId);
-	// Note: workflow links are now managed locally, not fetched from external collection
+	// Apply phases for new program
+	applyPhasesForCurrentProgram();
+	await nextTick();
+	// Persist selection + current state snapshot
+	await freezeCurrentState();
 }
 
 // Framework phases data - will be initialized dynamically
@@ -764,6 +801,8 @@ async function addWorkflowToPhase() {
 	// Force Vue to re-render by triggering reactivity
 	await nextTick();
 	
+	// Keep per-program map in sync
+	syncProgramFromPhases();
 	// Save changes
 	await freezeCurrentState();
 	
@@ -784,8 +823,12 @@ async function removeWorkflow(phaseId: string, workflowLinkId: string) {
 			workflow.order = idx;
 		});
 		
-		// Save changes
-		await freezeCurrentState();
+		// Keep per-program map in sync
+		syncProgramFromPhases();
+	// Keep per-program map in sync
+	syncProgramFromPhases();
+	// Save changes
+	await freezeCurrentState();
 	}
 }
 
@@ -808,28 +851,56 @@ function loadWorkflowLinksFromState(workflowLinks: Record<string, any[]>) {
 		{
 			id: 'request_service',
 			title: 'REQUEST SERVICE/REPORT',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: workflowLinks.request_service || []
 		},
 		{
 			id: 'evaluate_service',
 			title: 'EVALUATE SERVICE',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: workflowLinks.evaluate_service || []
 		},
 		{
 			id: 'provide_services',
 			title: 'PROVIDE SERVICES AND REEVALUATE SERVICES',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: workflowLinks.provide_services || []
 		},
 		{
 			id: 'end_of_service',
 			title: 'END OF SERVICES',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: workflowLinks.end_of_service || []
 		}
 	];
+}
+
+function getProgramKey(id: string | number | null | undefined): string {
+	return id !== null && id !== undefined && id !== '' ? String(id) : 'default';
+}
+
+function phasesToLinksMap(phasesArr: Phase[]): Record<string, any[]> {
+	const map: Record<string, any[]> = {};
+	for (const phase of phasesArr) {
+		map[phase.id] = Array.isArray(phase.workflows) ? [...phase.workflows] : [];
+	}
+	// Ensure all known keys exist
+	map.request_service = map.request_service || [];
+	map.evaluate_service = map.evaluate_service || [];
+	map.provide_services = map.provide_services || [];
+	map.end_of_service = map.end_of_service || [];
+	return map;
+}
+
+function applyPhasesForCurrentProgram() {
+	const key = getProgramKey(selectedProgram.value);
+	const links = programWorkflowLinks.value[key] || {};
+	loadWorkflowLinksFromState(links);
+}
+
+function syncProgramFromPhases(programId?: string | number | null) {
+	const key = getProgramKey(programId ?? selectedProgram.value);
+	programWorkflowLinks.value[key] = phasesToLinksMap(phases.value);
 }
 
 function initializeDefaultPhases() {
@@ -837,25 +908,25 @@ function initializeDefaultPhases() {
 		{
 			id: 'request_service',
 			title: 'REQUEST SERVICE/REPORT',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: []
 		},
 		{
 			id: 'evaluate_service',
 			title: 'EVALUATE SERVICE',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: []
 		},
 		{
 			id: 'provide_services',
 			title: 'PROVIDE SERVICES AND REEVALUATE SERVICES',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: []
 		},
 		{
 			id: 'end_of_service',
 			title: 'END OF SERVICES',
-			color: '#7c3aed',
+			color: 'var(--theme--primary, #7c3aed)',
 			workflows: []
 		}
 	];
@@ -960,6 +1031,8 @@ onMounted(async () => {
 		
 		// Then load saved state from props or item data
 		await loadSavedState();
+		// After loading, ensure the current program’s phases are applied
+		applyPhasesForCurrentProgram();
 		
 		// Debug: Log current nodes
 		console.log('Current flowNodes after initialization:', flowNodes.value);
@@ -985,15 +1058,15 @@ onMounted(async () => {
 	display: flex;
 	flex-direction: column;
 	height: 100vh;
-	background: #f8fafc;
+	background: var(--theme--background, #f8fafc);
 }
 
 .process-map-header {
 	display: flex;
 	align-items: center;
 	padding: 1rem;
-	background: #7c3aed;
-	color: white;
+	background: var(--theme--primary, #7c3aed);
+	color: var(--theme--primary-foreground, white);
 }
 
 .info-icon {
@@ -1040,18 +1113,18 @@ onMounted(async () => {
 
 .program-selector :deep(.v-select) {
 	min-width: 300px;
-	background: rgba(255, 255, 255, 0.1);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.1));
 	border-radius: 4px;
 }
 
 .program-selector :deep(.v-select .v-input) {
 	background: transparent;
-	border: 1px solid rgba(255, 255, 255, 0.3);
-	color: white;
+	border: 1px solid var(--theme--border-color-subdued, rgba(255, 255, 255, 0.3));
+	color: var(--theme--primary-foreground, white);
 }
 
 .program-selector :deep(.v-select .v-input::placeholder) {
-	color: rgba(255, 255, 255, 0.7);
+	color: var(--theme--foreground-subdued, rgba(255, 255, 255, 0.7));
 }
 
 .info-icon {
@@ -1059,7 +1132,7 @@ onMounted(async () => {
 	left: 1rem;
 	top: 50%;
 	transform: translateY(-50%);
-	background: rgba(255, 255, 255, 0.2);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.2));
 	border-radius: 50%;
 	width: 32px;
 	height: 32px;
@@ -1073,7 +1146,7 @@ onMounted(async () => {
 	flex: 1;
 	height: 60vh;
 	position: relative;
-	border-bottom: 2px solid #e5e7eb;
+	border-bottom: 2px solid var(--theme--border-color, #e5e7eb);
 }
 
 /* Adjust layout when custom header is active */
@@ -1090,12 +1163,12 @@ onMounted(async () => {
 	display: grid;
 	grid-template-columns: 1fr 1fr 2fr 1fr;
 	height: 40vh;
-	background: white;
-	border-top: 1px solid #e5e7eb;
+	background: var(--theme--background, white);
+	border-top: 1px solid var(--theme--border-color, #e5e7eb);
 }
 
 .swim-lane {
-	border-right: 1px solid #e5e7eb;
+	border-right: 1px solid var(--theme--border-color, #e5e7eb);
 	display: flex;
 	flex-direction: column;
 }
@@ -1106,7 +1179,7 @@ onMounted(async () => {
 
 .swim-lane-header {
 	padding: 0.75rem;
-	color: white;
+	color: var(--theme--primary-foreground, white);
 	font-weight: 600;
 	text-align: center;
 	font-size: 0.875rem;
@@ -1132,10 +1205,10 @@ onMounted(async () => {
 }
 
 .add-workflow-btn {
-	background: rgba(255, 255, 255, 0.2);
-	border: 1px solid rgba(255, 255, 255, 0.3);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.2));
+	border: 1px solid var(--theme--border-color-subdued, rgba(255, 255, 255, 0.3));
 	border-radius: 4px;
-	color: white;
+	color: var(--theme--primary-foreground, white);
 	padding: 4px;
 	cursor: pointer;
 	transition: all 0.2s ease;
@@ -1145,8 +1218,8 @@ onMounted(async () => {
 }
 
 .add-workflow-btn:hover {
-	background: rgba(255, 255, 255, 0.3);
-	border-color: rgba(255, 255, 255, 0.5);
+	background: var(--theme--background-accent-hover, rgba(255, 255, 255, 0.3));
+	border-color: var(--theme--border-color, rgba(255, 255, 255, 0.5));
 }
 
 .swim-lane-content {
@@ -1169,34 +1242,34 @@ onMounted(async () => {
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.5rem;
-	background: #f8fafc;
-	border: 1px solid #e5e7eb;
+	background: var(--theme--background, #f8fafc);
+	border: 1px solid var(--theme--border-color, #e5e7eb);
 	border-radius: 4px;
 	cursor: pointer;
 	font-size: 0.75rem;
 	line-height: 1.2;
 	transition: all 0.2s ease;
-	color: #7c3aed;
+	color: var(--theme--primary, #7c3aed);
 }
 
 .workflow-item:hover {
-	background: #ede9fe;
-	border-color: #7c3aed;
+	background: var(--theme--background-accent, #ede9fe);
+	border-color: var(--theme--primary, #7c3aed);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(124, 58, 237, 0.1);
+	box-shadow: 0 2px 4px var(--theme--primary-shadow, rgba(124, 58, 237, 0.1));
 }
 
 /* Vue Flow custom styling */
 :deep(.vue-flow) {
-	background: #f8fafc;
+	background: var(--theme--background, #f8fafc);
 }
 
 :deep(.vue-flow__background) {
-	background: #f8fafc;
+	background: var(--theme--background, #f8fafc);
 }
 
 :deep(.vue-flow__edge-path) {
-	stroke: #6b7280;
+	stroke: var(--theme--foreground-subdued, #6b7280);
 	stroke-width: 2;
 }
 
@@ -1206,12 +1279,12 @@ onMounted(async () => {
 }
 
 :deep(.vue-flow__edge-label) {
-	background: white;
+	background: var(--theme--background, white);
 	padding: 2px 6px;
 	border-radius: 3px;
 	font-size: 11px;
 	font-weight: 600;
-	color: #374151;
+	color: var(--theme--foreground, #374151);
 }
 
 @keyframes dashdraw {
@@ -1251,11 +1324,11 @@ onMounted(async () => {
 
 /* Style all Vue Flow control buttons for better contrast */
 :deep(.vue-flow__controls) {
-	background: rgba(255, 255, 255, 0.95);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.95));
 	backdrop-filter: blur(8px);
 	border: 1px solid var(--theme--border-color);
 	border-radius: var(--theme--border-radius);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 4px 12px var(--theme--shadow, rgba(0, 0, 0, 0.15));
 }
 
 :deep(.vue-flow__controls button) {
@@ -1318,7 +1391,7 @@ onMounted(async () => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: #f8fafc;
+	background: var(--theme--background, #f8fafc);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1393,21 +1466,25 @@ onMounted(async () => {
 	justify-content: center;
 	width: 44px;
 	height: 44px;
-	background: rgba(255, 255, 255, 0.95);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.95));
 	backdrop-filter: blur(8px);
 	color: var(--theme--foreground);
 	border: 1px solid var(--theme--border-color);
 	border-radius: var(--theme--border-radius);
 	cursor: pointer;
 	transition: all 0.2s ease;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 8px var(--theme--shadow, rgba(0, 0, 0, 0.1));
 }
 
 .control-icon:hover {
-	background: var(--theme--primary);
-	color: var(--theme--primary-foreground);
+	background: var(--theme--success, #10b981);
+	color: white;
 	transform: translateY(-2px) scale(1.05);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 4px 12px var(--theme--shadow-accent, rgba(0, 0, 0, 0.15));
+}
+
+.control-icon:hover .v-icon {
+	color: white;
 }
 
 .control-icon:disabled {
@@ -1418,24 +1495,33 @@ onMounted(async () => {
 
 .control-icon .v-icon {
 	font-size: 18px;
+	color: inherit;
 }
 
 .save-icon {
-	background: var(--theme--primary);
-	color: var(--theme--primary-foreground);
+	background: var(--theme--success, #10b981);
+	color: white;
 }
 
 .save-icon:hover:not(:disabled) {
-	background: var(--theme--primary-accent);
+	background: var(--theme--success-accent, #059669);
+}
+
+.save-icon .v-icon {
+	color: white;
 }
 
 .edit-mode-icon {
-	background: var(--theme--primary);
-	color: var(--theme--primary-foreground);
+	background: var(--theme--warning, #f59e0b);
+	color: white;
 }
 
 .edit-mode-icon:hover:not(:disabled) {
-	background: var(--theme--primary-accent);
+	background: var(--theme--warning-accent, #d97706);
+}
+
+.edit-mode-icon .v-icon {
+	color: white;
 }
 
 .gear-icon {
@@ -1444,20 +1530,20 @@ onMounted(async () => {
 	justify-content: center;
 	width: 48px;
 	height: 48px;
-	background: rgba(255, 255, 255, 0.95);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.95));
 	backdrop-filter: blur(8px);
 	color: var(--theme--foreground);
 	border: 1px solid var(--theme--border-color);
 	border-radius: var(--theme--border-radius);
 	cursor: pointer;
 	transition: all 0.2s ease;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 8px var(--theme--shadow, rgba(0, 0, 0, 0.1));
 }
 
 .gear-icon:hover {
 	color: var(--theme--primary);
 	transform: scale(1.1) rotate(90deg);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 4px 12px var(--theme--shadow-accent, rgba(0, 0, 0, 0.15));
 }
 
 .gear-icon .v-icon {
@@ -1470,11 +1556,11 @@ onMounted(async () => {
 	top: 20px;
 	right: 20px;
 	z-index: 1000;
-	background: rgba(255, 255, 255, 0.95);
+	background: var(--theme--background-accent, rgba(255, 255, 255, 0.95));
 	backdrop-filter: blur(8px);
 	border: 1px solid var(--theme--border-color);
 	border-radius: var(--theme--border-radius);
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 4px 12px var(--theme--shadow-accent, rgba(0, 0, 0, 0.15));
 	padding: 16px;
 	min-width: 280px;
 }
@@ -1530,7 +1616,7 @@ onMounted(async () => {
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.5rem 0.75rem;
-	background: var(--theme--primary);
+	/* background: var(--theme--primary); */
 	color: var(--theme--primary-foreground);
 	border: none;
 	border-radius: var(--theme--border-radius);
@@ -1568,21 +1654,21 @@ onMounted(async () => {
 	align-items: center;
 	justify-content: space-between;
 	padding: 0.5rem;
-	background: #f8fafc;
-	border: 1px solid #e5e7eb;
+	background: var(--theme--background, #f8fafc);
+	border: 1px solid var(--theme--border-color, #e5e7eb);
 	border-radius: 4px;
 	cursor: pointer;
 	font-size: 0.75rem;
 	line-height: 1.2;
 	transition: all 0.2s ease;
-	color: #7c3aed;
+	color: var(--theme--primary, #7c3aed);
 }
 
 .workflow-item:hover {
-	background: #ede9fe;
-	border-color: #7c3aed;
+	background: var(--theme--background-accent, #ede9fe);
+	border-color: var(--theme--primary, #7c3aed);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(124, 58, 237, 0.1);
+	box-shadow: 0 2px 4px var(--theme--primary-shadow, rgba(124, 58, 237, 0.1));
 }
 
 .workflow-item-content {
@@ -1594,7 +1680,7 @@ onMounted(async () => {
 
 .drag-handle {
 	cursor: grab;
-	color: #9ca3af;
+	color: var(--theme--foreground-subdued, #9ca3af);
 	opacity: 0.7;
 }
 
@@ -1613,7 +1699,7 @@ onMounted(async () => {
 	width: 20px;
 	height: 20px;
 	background: transparent;
-	color: #ef4444;
+	color: var(--theme--danger, #ef4444);
 	border: none;
 	border-radius: 50%;
 	cursor: pointer;
@@ -1622,7 +1708,7 @@ onMounted(async () => {
 }
 
 .remove-workflow-btn:hover {
-	background: #fef2f2;
+	background: var(--theme--danger-background, #fef2f2);
 	opacity: 1;
 	transform: scale(1.1);
 }
@@ -1634,14 +1720,14 @@ onMounted(async () => {
 /* VueDraggable drag states */
 .workflow-ghost {
 	opacity: 0.5;
-	background: #e0e7ff !important;
+	background: var(--theme--primary-background, #e0e7ff) !important;
 	transform: rotate(5deg);
 }
 
 .workflow-chosen {
 	opacity: 0.8;
 	transform: scale(1.05);
-	box-shadow: 0 4px 8px rgba(124, 58, 237, 0.2);
+	box-shadow: 0 4px 8px var(--theme--primary-shadow, rgba(124, 58, 237, 0.2));
 }
 
 .workflow-drag {
@@ -1653,12 +1739,12 @@ onMounted(async () => {
 /* Drag and Drop States */
 .workflow-ghost {
 	opacity: 0.5;
-	background: #ddd6fe !important;
+	background: var(--theme--primary-background-accent, #ddd6fe) !important;
 }
 
 .workflow-chosen {
 	transform: rotate(2deg);
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 4px 8px var(--theme--shadow, rgba(0, 0, 0, 0.2));
 }
 
 .workflow-drag {
@@ -1673,7 +1759,7 @@ onMounted(async () => {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: rgba(0, 0, 0, 0.5);
+	background: var(--theme--overlay, rgba(0, 0, 0, 0.5));
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -1681,9 +1767,9 @@ onMounted(async () => {
 }
 
 .modal-content {
-	background: white;
+	background: var(--theme--background, white);
 	border-radius: var(--theme--border-radius);
-	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 10px 25px var(--theme--shadow-modal, rgba(0, 0, 0, 0.15));
 	max-width: 500px;
 	width: 90%;
 	max-height: 80vh;
@@ -1769,8 +1855,8 @@ onMounted(async () => {
 
 .btn-primary {
 	padding: 0.5rem 1rem;
-	background: var(--theme--primary);
-	color: var(--theme--primary-foreground);
+	background: var(--theme--success, #10b981);
+	color: white;
 	border: none;
 	border-radius: var(--theme--border-radius);
 	font-size: 0.875rem;
@@ -1780,9 +1866,9 @@ onMounted(async () => {
 }
 
 .btn-primary:hover:not(:disabled) {
-	background: var(--theme--primary-accent);
+	background: var(--theme--success-accent, #059669);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 4px var(--theme--shadow, rgba(0, 0, 0, 0.1));
 }
 
 .btn-primary:disabled {
@@ -1806,7 +1892,7 @@ onMounted(async () => {
 .btn-secondary:hover {
 	background: var(--theme--background-accent);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 2px 4px var(--theme--shadow, rgba(0, 0, 0, 0.1));
 }
 
 /* Separator Line Styles */
@@ -1816,7 +1902,7 @@ onMounted(async () => {
 	left: 0;
 	width: 100%;
 	height: 100%;
-	pointer-events: auto;
+	pointer-events: none;
 	z-index: 1000;
 }
 
@@ -1838,6 +1924,6 @@ onMounted(async () => {
 }
 
 .separator-line-svg text:hover {
-	fill: #7c3aed;
+	fill: var(--theme--primary, #7c3aed);
 }
 </style>

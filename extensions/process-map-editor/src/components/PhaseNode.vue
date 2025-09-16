@@ -49,8 +49,8 @@ defineProps<Props>();
 
 <style scoped>
 .phase-node {
-	background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
-	border: 2px solid #9ca3af;
+	background: var(--theme--background-subdued, #e5e7eb);
+	border: 2px solid var(--theme--border-color-accent, #9ca3af);
 	border-radius: 8px;
 	padding: calc(0.96vw + 0.32rem) calc(1.2vw + 0.48rem);
 	min-width: calc(8vw + 1.6rem);
@@ -60,7 +60,7 @@ defineProps<Props>();
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 4px 12px var(--theme--shadow, rgba(0, 0, 0, 0.1));
 	transition: all 0.2s ease;
 	cursor: pointer;
 	font-size: calc(0.8vw + 0.6rem);
@@ -68,7 +68,7 @@ defineProps<Props>();
 
 .phase-node:hover {
 	transform: scale(1.05);
-	box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+	box-shadow: 0 8px 25px var(--theme--shadow-accent, rgba(0, 0, 0, 0.15));
 }
 
 .node-content {
@@ -78,7 +78,7 @@ defineProps<Props>();
 .node-label {
 	font-weight: 600;
 	font-size: calc(0.512vw + 0.384rem);
-	color: #374151;
+	color: var(--theme--foreground, #374151);
 	line-height: 1.3;
 	white-space: pre-line;
 }
@@ -90,37 +90,36 @@ defineProps<Props>();
 	min-height: 4.8px;
 	max-width: 9.6px;
 	max-height: 9.6px;
-	background: #6b7280;
-	border: 2px solid white;
+	background: var(--theme--foreground-subdued, #6b7280);
+	border: 2px solid var(--theme--background, white);
 }
 
 .phase-handle:hover {
-	background: #374151;
+	background: var(--theme--foreground, #374151);
 }
 
-/* Phase-specific styling */
 .phase-node.phase-request {
-	background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-	border-color: #8b5cf6;
+	background: var(--theme--primary-background, #ddd6fe);
+	border-color: var(--theme--primary, #8b5cf6);
 }
 
 .phase-node.phase-evaluate {
-	background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-	border-color: #8b5cf6;
+	background: var(--theme--primary-background, #ddd6fe);
+	border-color: var(--theme--primary, #8b5cf6);
 }
 
 .phase-node.phase-provide {
-	background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-	border-color: #8b5cf6;
+	background: var(--theme--primary-background, #ddd6fe);
+	border-color: var(--theme--primary, #8b5cf6);
 }
 
 .phase-node.phase-reevaluate {
-	background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-	border-color: #8b5cf6;
+	background: var(--theme--primary-background, #ddd6fe);
+	border-color: var(--theme--primary, #8b5cf6);
 }
 
 .phase-node.phase-end {
-	background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%);
-	border-color: #8b5cf6;
+	background: var(--theme--primary-background, #ddd6fe);
+	border-color: var(--theme--primary, #8b5cf6);
 }
 </style>

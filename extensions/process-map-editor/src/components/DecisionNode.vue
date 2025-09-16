@@ -14,25 +14,25 @@
 			id="top"
 			type="source"
 			:position="Position.Top"
-			:style="{ background: '#fbbf24' }"
+			:style="{ background: 'var(--theme--warning, #fbbf24)' }"
 		/>
 		<Handle
 			id="right"
 			type="source"
 			:position="Position.Right"
-			:style="{ background: '#fbbf24' }"
+			:style="{ background: 'var(--theme--warning, #fbbf24)' }"
 		/>
 		<Handle
 			id="bottom"
 			type="source"
 			:position="Position.Bottom"
-			:style="{ background: '#fbbf24' }"
+			:style="{ background: 'var(--theme--warning, #fbbf24)' }"
 		/>
 		<Handle
 			id="left"
 			type="source"
 			:position="Position.Left"
-			:style="{ background: '#fbbf24' }"
+			:style="{ background: 'var(--theme--warning, #fbbf24)' }"
 		/>
 	</div>
 </template>
@@ -71,11 +71,11 @@ const isAppropriateText = computed(() => {
 .diamond-shape {
 	width: 100%;
 	height: 100%;
-	background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-	border: 2px solid #d97706;
+	background: var(--theme--warning, #fbbf24);
+	border: 2px solid var(--theme--warning-border, #d97706);
 	transform: rotate(45deg);
 	border-radius: 8px;
-	box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+	box-shadow: 0 4px 12px var(--theme--warning-shadow, rgba(251, 191, 36, 0.2));
 	transition: all 0.2s ease;
 	display: flex;
 	align-items: center;
@@ -85,19 +85,19 @@ const isAppropriateText = computed(() => {
 
 .diamond-shape:hover {
 	transform: rotate(45deg) scale(1.05);
-	box-shadow: 0 8px 25px rgba(251, 191, 36, 0.3);
+	box-shadow: 0 8px 25px var(--theme--warning-shadow-hover, rgba(251, 191, 36, 0.3));
 }
 
 .decision-node.selected .diamond-shape {
-	border-color: #ffffff;
-	box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.4);
+	border-color: var(--theme--background, #ffffff);
+	box-shadow: 0 0 0 3px var(--theme--warning-selection, rgba(251, 191, 36, 0.4));
 	transform: rotate(45deg) scale(1.05);
 }
 
 .node-content {
 	transform: rotate(-45deg);
 	text-align: center;
-	color: black;
+	color: var(--theme--warning-foreground, black);
 	padding: calc(0.5vw + 0.2rem);
 	max-width: calc(6vw + 1.2rem);
 	font-size: calc(0.512vw + 0.384rem);

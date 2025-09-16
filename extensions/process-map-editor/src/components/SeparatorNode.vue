@@ -84,10 +84,10 @@ const cancelEdit = () => {
   position: absolute;
   width: 8px;
   height: 100%;
-  background: #7c3aed;
+  background: var(--theme--primary, #7c3aed);
   left: 0;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px var(--theme--shadow, rgba(0, 0, 0, 0.2));
 }
 
 .separator-text {
@@ -105,28 +105,28 @@ const cancelEdit = () => {
 }
 
 .separator-text:hover {
-  background-color: rgba(124, 58, 237, 0.1);
+  background-color: var(--theme--primary-background, rgba(124, 58, 237, 0.1));
 }
 
 .separator-text.editing {
-  background-color: rgba(124, 58, 237, 0.2);
+  background-color: var(--theme--primary-background-accent, rgba(124, 58, 237, 0.2));
 }
 
 .text-display {
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--theme--foreground, #374151);
   letter-spacing: 0.5px;
 }
 
 .text-input {
-  background: white;
-  border: 2px solid #7c3aed;
+  background: var(--theme--background, white);
+  border: 2px solid var(--theme--primary, #7c3aed);
   border-radius: 4px;
   padding: 2px 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #374151;
+  color: var(--theme--foreground, #374151);
   letter-spacing: 0.5px;
   min-width: 120px;
   text-align: center;
@@ -134,7 +134,7 @@ const cancelEdit = () => {
 }
 
 .text-input:focus {
-  border-color: #5b21b6;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+  border-color: var(--theme--primary-accent, #5b21b6);
+  box-shadow: 0 0 0 2px var(--theme--primary-shadow, rgba(124, 58, 237, 0.2));
 }
 </style>

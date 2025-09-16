@@ -2,7 +2,7 @@
 	<div class="decision-node" :class="{ selected: selected }">
 		<div class="diamond-shape">
 			<div class="node-content">
-				<span class="node-title">{{ data.label || 'Decision' }}</span>
+				<span class="node-title" :class="{ 'small-text': isAppropriateText }">{{ data.label || 'Decision' }}</span>
 				<div v-if="data.description" class="node-description">
 					{{ data.description }}
 				</div>
@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 
 interface Props {
@@ -49,7 +50,11 @@ interface Props {
 	selected?: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
+
+const isAppropriateText = computed(() => {
+	return props.data.label?.includes('Appropriate') || false;
+});
 </script>
 
 <style scoped>
@@ -103,6 +108,10 @@ defineProps<Props>();
 	font-size: calc(0.512vw + 0.384rem);
 	display: block;
 	line-height: 1.2;
+}
+
+.node-title.small-text {
+	font-size: calc(0.35vw + 0.25rem);
 }
 
 .node-description {

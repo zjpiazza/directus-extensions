@@ -14,6 +14,8 @@ import WorkflowLegend from './components/WorkflowLegend.vue';
 
 // Import your custom node components
 import TerminalNode from './flow-nodes/TerminalNode.vue';
+import StartNode from './flow-nodes/StartNode.vue';
+import EndNode from './flow-nodes/EndNode.vue';
 import ProcessNode from './flow-nodes/ProcessNode.vue';
 import DecisionNode from './flow-nodes/DecisionNode.vue';
 import OffPageNode from './flow-nodes/OffPageNode.vue';
@@ -154,7 +156,8 @@ const showDetailsSidebar = ref(true);
 
 // Node types for the palette
 const nodeTypes = [
-  { type: 'terminal', label: 'Terminal', icon: 'stop' },
+  { type: 'start', label: 'Start', icon: 'play_arrow' },
+  { type: 'end', label: 'End', icon: 'stop' },
   { type: 'process', subtype: 'task', label: 'Task', icon: 'task' },
   { type: 'process', subtype: 'form', label: 'Form', icon: 'description' },
   { type: 'decision', label: 'Decision', icon: 'help' },
@@ -499,8 +502,8 @@ const onDrop = (event: DragEvent) => {
     type: nodeType.type,
     position,
     data: {
-      label: `${nodeType.label} Node`,
-      name: `${nodeType.label} Node`,
+      label: nodeType.label,
+      name: nodeType.label,
       description: '',
       ...(nodeType.subtype && { subtype: nodeType.subtype }),
       ...(nodeType.subtype === 'form' && { targetCollection: '' }),
@@ -817,8 +820,8 @@ watch(() => props.item, (newItem) => {
         id: node.id || `node-${index}-${Date.now()}`,
         ...node,
         data: {
-          label: node.data?.label || 'Unnamed Node',
-          name: node.data?.name || node.data?.label || 'Unnamed Node',
+          label: node.data?.label || 'Unnamed',
+          name: node.data?.name || node.data?.label || 'Unnamed',
           description: node.data?.description || '',
           ...node.data,
           // Provide the openCollection function to process nodes
@@ -932,6 +935,8 @@ watch(flowEdges, (newEdges, oldEdges) => {
           v-model:nodes="flowNodes"
           v-model:edges="flowEdges"
           :node-types="{
+            start: StartNode,
+            end: EndNode,
             terminal: TerminalNode,
             process: ProcessNode,
             decision: DecisionNode,

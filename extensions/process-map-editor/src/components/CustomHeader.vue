@@ -155,18 +155,7 @@ onMounted(() => {
 			</div>
 
 			<div class="header-center">
-				<div class="program-selector">
-					<label>Program:</label>
-					<v-select
-						v-model="selectedProgram"
-						:items="programs"
-						itemText="name"
-						itemValue="id"
-						placeholder="Select Program"
-						show-empty
-						@update:model-value="onProgramChange"
-					/>
-				</div>
+				<!-- Program selector moved to canvas -->
 			</div>
 		</div>
 	</div>

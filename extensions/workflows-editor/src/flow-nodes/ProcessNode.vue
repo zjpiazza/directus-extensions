@@ -21,7 +21,7 @@ const handleOpenCollection = () => {
 };
 
 const nodeIcon = computed(() => (props.data.subtype === 'form' ? 'description' : 'task'));
-const nodeColor = computed(() => (props.data.subtype === 'form' ? '#16a34a' : '#2563eb'));
+const nodeColor = computed(() => (props.data.subtype === 'form' ? '#7c3aed' : '#2563eb'));
 
 const displayLabel = computed(() => {
   if (props.data.subtype === 'form' && props.data.formLabel) return props.data.formLabel;
@@ -65,7 +65,7 @@ const displayLabel = computed(() => {
   padding: 12px 16px;
   background: #eff6ff;
   border: 2px solid;
-  border-radius: 6px;
+  border-radius: 0;
   min-width: 160px;
   min-height: 56px;
   position: relative;

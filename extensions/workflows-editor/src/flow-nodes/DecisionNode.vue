@@ -8,8 +8,8 @@ const props = defineProps<NodeProps<Data>>();
 
 <template>
   <div class="decision-node">
-    <Handle id="top" type="target" :position="Position.Top" :is-connectable="true" />
-    <Handle id="left" type="target" :position="Position.Left" :is-connectable="true" />
+    <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
+    <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
     <div class="diamond-shape">
       <span class="node-label">{{ props.data.label }}</span>
     </div>
@@ -35,7 +35,19 @@ const props = defineProps<NodeProps<Data>>();
   transition: background .2s ease, border-color .2s ease, transform .15s ease;
 }
 
-.node-label { font-size: 12px; font-weight: 500; color: #ffffff; white-space: normal; overflow: hidden; text-overflow: ellipsis; max-width: 84px; text-align: center; line-height: 1.15; text-shadow: 0 1px 1px rgba(0,0,0,0.25); }
+.node-label { 
+  font-size: 12px; 
+  font-weight: 500; 
+  color: #ffffff; 
+  white-space: normal; 
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 84px; 
+  text-align: center; 
+  line-height: 1.2; 
+  text-shadow: 0 1px 1px rgba(0,0,0,0.25); 
+}
 
 .diamond-shape:hover { transform: translateY(-2px); background: #b45309; border-color: #b45309; }
 </style>

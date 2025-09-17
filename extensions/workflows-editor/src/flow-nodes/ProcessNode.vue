@@ -31,8 +31,8 @@ const displayLabel = computed(() => {
 
 <template>
   <div class="process-node">
-    <Handle id="top" type="target" :position="Position.Top" :is-connectable="true" />
-    <Handle id="left" type="target" :position="Position.Left" :is-connectable="true" />
+    <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
+    <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
     <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor }">
       <v-icon class="node-icon" :name="nodeIcon" />
       <span class="node-label">{{ displayLabel }}</span>
@@ -60,30 +60,37 @@ const displayLabel = computed(() => {
 
 .process-shape {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   padding: 12px 16px;
   background: #eff6ff;
   border: 2px solid;
   border-radius: 0;
-  min-width: 160px;
+  width: 160px;
   min-height: 56px;
   position: relative;
   transition: background .2s ease, border-color .2s ease, transform .15s ease;
 }
 
-.node-icon { font-size: 16px; flex-shrink: 0; }
+.node-icon { 
+  font-size: 16px; 
+  flex-shrink: 0; 
+  margin-top: 2px; /* Align icon with first line of text */
+}
 
 .node-label {
   font-size: 14px;
   font-weight: 500;
   color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
   flex: 1;
   text-align: center;
   text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+  line-height: 1.3;
+  min-width: 0; /* Allow text to shrink */
 }
 
 .open-collection-btn {
@@ -95,6 +102,8 @@ const displayLabel = computed(() => {
   font-size: 12px;
   opacity: 0.7;
   transition: opacity 0.2s ease;
+  flex-shrink: 0;
+  margin-top: 2px; /* Align with first line of text */
 }
 .open-collection-btn:hover { opacity: 1; background: rgba(0,0,0,0.1); }
 

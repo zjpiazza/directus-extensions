@@ -948,6 +948,7 @@ watch(flowEdges, (newEdges, oldEdges) => {
           :edges-updatable="isEditMode"
           :edges-reconnectable="isEditMode"
           :nodes-connectable="isEditMode"
+          :connection-mode="ConnectionMode.Loose"
           :connection-line-style="{ strokeWidth: 2, stroke: '#0066cc' }"
           :connection-line-type="'bezier'"
           :elements-selectable="isEditMode"

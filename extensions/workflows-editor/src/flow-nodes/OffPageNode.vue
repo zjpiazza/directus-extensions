@@ -38,8 +38,8 @@ const handlePentagonClick = () => {
 
 <template>
   <div class="offpage-node">
-    <Handle id="top" type="target" :position="Position.Top" :is-connectable="true" />
-    <Handle id="left" type="target" :position="Position.Left" :is-connectable="true" />
+    <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
+    <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
     <div 
       class="pentagon-shape"
       :class="{ 

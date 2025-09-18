@@ -470,7 +470,7 @@ function onViewportMove(event: { flowTransform: { x: number; y: number; zoom: nu
 
 function openWorkflow(workflowId: string) {
 	// Open the specific workflow in a new tab
-	const workflowUrl = `/admin/content/visual_flows/${workflowId}`;
+	const workflowUrl = `/admin/content/workflows/${workflowId}`;
 	window.open(workflowUrl, '_blank');
 }
 

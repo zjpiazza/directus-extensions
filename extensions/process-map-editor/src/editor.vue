@@ -169,6 +169,7 @@
 									<div
 										class="workflow-item"
 										@click="openWorkflow(workflow.workflowId || workflow.id)"
+										v-if="workflow.workflowId || workflow.id"
 									>
 									<div class="workflow-item-content">
 										<v-icon v-if="isEditMode" name="drag_indicator" class="drag-handle" size="small" />
@@ -713,8 +714,13 @@ function onViewportMove(event: { flowTransform: { x: number; y: number; zoom: nu
 }
 
 function openWorkflow(workflowId: string) {
+	// Safety check for undefined workflowId
+	if (!workflowId) {
+		console.warn('Cannot open workflow: workflowId is undefined');
+		return;
+	}
 	// Open the specific workflow in a new tab
-	const workflowUrl = `/admin/content/visual_flows/${workflowId}`;
+	const workflowUrl = `/admin/content/workflows/${workflowId}`;
 	window.open(workflowUrl, '_blank');
 }
 

@@ -119,6 +119,22 @@ const {
   updateNodeData: baseUpdateNodeData,
 } = useWorkflowData();
 
+// Function to update node classes for multi-selection visual feedback
+const updateNodeClasses = () => {
+  flowNodes.value.forEach(node => {
+    const currentClass = (typeof node.class === 'string' ? node.class : '') || '';
+    // Remove any existing multi-selected class
+    let newClass = currentClass.replace(/\s*multi-selected\s*/g, ' ').trim();
+    
+    // Add multi-selected class if this node is in the selection
+    if (selectedNodes.value.has(node.id) && isMultiSelecting.value) {
+      newClass = (newClass + ' multi-selected').trim();
+    }
+    
+    node.class = newClass;
+  });
+};
+
 // Override updateNodeData to also persist changes
 const updateNodeData = () => {
   baseUpdateNodeData();
@@ -131,6 +147,20 @@ const updateNodeData = () => {
 
 // Add selectedEdge state
 const selectedEdge = ref<Edge | null>(null);
+
+// Multi-selection state for alignment functionality
+const selectedNodes = ref<Set<string>>(new Set());
+const isMultiSelecting = ref(false);
+
+/*
+ * Multi-selection feature implementation:
+ * - Hold Ctrl/Cmd and click nodes to select multiple nodes
+ * - Selected nodes get green outline (multi-selected class)
+ * - Alignment toolbar appears when 2+ nodes are selected
+ * - Horizontal alignment: aligns all selected nodes to average Y position
+ * - Vertical alignment: aligns all selected nodes to average X position
+ * - Clear button or clicking empty space clears selection
+ */
 
 // Mode-based behavior - add internal state as fallback
 const internalMode = ref<'edit' | 'view'>(props.mode || 'edit');
@@ -316,7 +346,7 @@ const toggleFollowMode = (enabled: boolean) => {
   } else {
     // Remove focused class from all nodes when follow mode is disabled
     flowNodes.value.forEach(n => {
-      if (n.class && typeof n.class === 'string') {
+      if (n.class && typeof n.class === 'string' && n.class) {
         n.class = n.class.replace(/\s*focused\s*/g, ' ').trim();
       }
     });
@@ -341,7 +371,7 @@ const focusOnNode = (nodeId: string) => {
   
   // Remove focused class from all nodes
   flowNodes.value.forEach(n => {
-    if (n.class && typeof n.class === 'string') {
+    if (n.class && typeof n.class === 'string' && n.class) {
       n.class = n.class.replace(/\s*focused\s*/g, ' ').trim();
     }
   });
@@ -363,69 +393,44 @@ const focusOnNode = (nodeId: string) => {
   });
 };
 
-// Get connected nodes based on direction
+// Get connected nodes based on handle direction (following actual edges)
 const getConnectedNode = (nodeId: string, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
   const edges = flowEdges.value;
-  const currentNode = flowNodes.value.find(n => n.id === nodeId);
-  if (!currentNode) return null;
   
-  // Find edges connected to this node
-  const connectedEdges = edges.filter(edge => 
-    edge.source === nodeId || edge.target === nodeId
+  // Map arrow directions to handle IDs
+  const directionToHandle: Record<string, string> = {
+    up: 'top',
+    down: 'bottom', 
+    left: 'left',
+    right: 'right'
+  };
+  
+  const targetHandle = directionToHandle[direction];
+  
+  debugLog(`Looking for connection from node ${nodeId} via ${targetHandle} handle (${direction} direction)`);
+  
+  // Find edges where the current node is the source and the source handle matches the direction
+  const outgoingEdge = edges.find(edge => 
+    edge.source === nodeId && edge.sourceHandle === targetHandle
   );
   
-  // For simplicity, we'll use a basic approach:
-  // up/down: follow output/input connections
-  // left/right: find nodes to the left/right based on position
-  
-  if (direction === 'down') {
-    // Follow outgoing connections (this node is source)
-    const outgoingEdge = connectedEdges.find(edge => edge.source === nodeId);
-    return outgoingEdge?.target || null;
+  if (outgoingEdge) {
+    debugLog(`Found outgoing edge from ${nodeId}.${targetHandle} to ${outgoingEdge.target}.${outgoingEdge.targetHandle}`);
+    return outgoingEdge.target;
   }
   
-  if (direction === 'up') {
-    // Follow incoming connections (this node is target)
-    const incomingEdge = connectedEdges.find(edge => edge.target === nodeId);
-    return incomingEdge?.source || null;
+  // Find edges where the current node is the target and the target handle matches the direction
+  const incomingEdge = edges.find(edge => 
+    edge.target === nodeId && edge.targetHandle === targetHandle
+  );
+  
+  if (incomingEdge) {
+    debugLog(`Found incoming edge from ${incomingEdge.source}.${incomingEdge.sourceHandle} to ${nodeId}.${targetHandle}`);
+    return incomingEdge.source;
   }
   
-  // For left/right, find nearest node in that direction
-  const allNodes = flowNodes.value.filter(n => n && n.id !== nodeId);
-  const currentPos = currentNode.position;
-  
-  let targetNodes = allNodes;
-  
-  if (direction === 'left') {
-    targetNodes = allNodes.filter(n => n && n.position && n.position.x < currentPos.x);
-  } else if (direction === 'right') {
-    targetNodes = allNodes.filter(n => n && n.position && n.position.x > currentPos.x);
-  }
-  
-  // Find the closest node
-  if (targetNodes.length === 0) return null;
-  
-  let closest = targetNodes[0];
-  if (!closest || !closest.position) return null;
-  
-  for (let i = 1; i < targetNodes.length; i++) {
-    const node = targetNodes[i];
-    if (!node || !node.position) continue;
-    
-    const closestDist = Math.sqrt(
-      Math.pow(currentPos.x - closest.position.x, 2) + 
-      Math.pow(currentPos.y - closest.position.y, 2)
-    );
-    const nodeDist = Math.sqrt(
-      Math.pow(currentPos.x - node.position.x, 2) + 
-      Math.pow(currentPos.y - node.position.y, 2)
-    );
-    if (nodeDist < closestDist) {
-      closest = node;
-    }
-  }
-  
-  return closest?.id || null;
+  debugLog(`No connection found for ${nodeId} via ${targetHandle} handle`);
+  return null;
 };
 
 // Navigate between nodes using arrow keys
@@ -435,6 +440,15 @@ const navigateNode = (direction: 'up' | 'down' | 'left' | 'right') => {
   const nextNodeId = getConnectedNode(focusedNodeId.value, direction);
   if (nextNodeId) {
     focusOnNode(nextNodeId);
+  } else {
+    // Optional: Show brief feedback when no connection exists
+    const directionToHandle: Record<string, string> = {
+      up: 'top',
+      down: 'bottom', 
+      left: 'left',
+      right: 'right'
+    };
+    debugLog(`No connection found in ${direction} direction (${directionToHandle[direction]} handle) from focused node`);
   }
 };
 
@@ -515,9 +529,34 @@ const onDrop = (event: DragEvent) => {
   flowNodes.value.push(newNode);
 };
 
-const onNodeClick = (event: { node: Node }) => {
-  selectedNode.value = event.node;
+const onNodeClick = (event: { node: Node; event: MouseEvent }) => {
+  const nodeId = event.node.id;
+  
+  // Handle multi-selection with Ctrl/Cmd key
+  if (event.event.ctrlKey || event.event.metaKey) {
+    if (selectedNodes.value.has(nodeId)) {
+      selectedNodes.value.delete(nodeId);
+    } else {
+      selectedNodes.value.add(nodeId);
+    }
+    isMultiSelecting.value = selectedNodes.value.size > 1;
+    
+    // Clear single selection when multi-selecting
+    if (isMultiSelecting.value) {
+      selectedNode.value = null;
+    }
+  } else {
+    // Single selection - clear multi-selection
+    selectedNodes.value.clear();
+    selectedNodes.value.add(nodeId);
+    isMultiSelecting.value = false;
+    selectedNode.value = event.node;
+  }
+  
   selectedEdge.value = null; // Clear edge selection when node is selected
+  
+  // Update visual feedback
+  updateNodeClasses();
 };
 
 const onEdgeClick = (event: { edge: Edge }) => {
@@ -526,9 +565,14 @@ const onEdgeClick = (event: { edge: Edge }) => {
 };
 
 const onPaneClick = () => {
-  // Clear both node and edge selection when clicking on empty canvas
+  // Clear all selections when clicking on empty canvas
   selectedNode.value = null;
   selectedEdge.value = null;
+  selectedNodes.value.clear();
+  isMultiSelecting.value = false;
+  
+  // Update visual feedback
+  updateNodeClasses();
 };
 
 const updateFormCollection = (collectionName: string) => {
@@ -603,6 +647,166 @@ const deleteSelectedEdge = () => {
       edges: flowEdges.value,
     });
   }
+};
+
+// Alignment functions
+const getActualNodeDimensions = (nodeId: string) => {
+  // Get actual DOM dimensions of the rendered node
+  const nodeElement = document.querySelector(`[data-id="${nodeId}"]`);
+  if (nodeElement) {
+    const rect = nodeElement.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  }
+  
+  // Fallback to estimated dimensions if DOM element not found
+  const node = flowNodes.value.find(n => n.id === nodeId);
+  if (!node) return { width: 160, height: 56 };
+  
+  switch (node.type) {
+    case 'process':
+      return { width: 160, height: 56 }; // Base size, but actual height may be larger
+    case 'decision':
+      return { width: 136, height: 136 };
+    case 'start':
+    case 'end':
+    case 'terminal':
+      return { width: 160, height: 56 }; // Base size, but actual height may be larger
+    case 'offpage':
+      return { width: 40, height: 32 };
+    default:
+      return { width: 160, height: 56 };
+  }
+};
+
+const getNodeCenter = (node: Node) => {
+  const dimensions = getActualNodeDimensions(node.id);
+  return {
+    x: node.position.x + dimensions.width / 2,
+    y: node.position.y + dimensions.height / 2
+  };
+};
+
+const alignNodesHorizontally = () => {
+  if (selectedNodes.value.size < 2) return;
+  
+  const selectedNodeIds = Array.from(selectedNodes.value);
+  const nodesToAlign = flowNodes.value.filter(node => selectedNodeIds.includes(node.id));
+  
+  if (nodesToAlign.length < 2) return;
+  
+  debugLog('Aligning nodes horizontally (by handle centers):', selectedNodeIds);
+  
+  // Calculate the average Y center position of all selected nodes
+  const avgCenterY = nodesToAlign.reduce((sum, node) => {
+    const center = getNodeCenter(node);
+    return sum + center.y;
+  }, 0) / nodesToAlign.length;
+  
+  debugLog('Average center Y position:', avgCenterY);
+  
+  // Update positions so that node centers align horizontally
+  selectedNodeIds.forEach(nodeId => {
+    const nodeIndex = flowNodes.value.findIndex(n => n.id === nodeId);
+    if (nodeIndex !== -1) {
+      const node = flowNodes.value[nodeIndex];
+      const dimensions = getActualNodeDimensions(nodeId);
+      
+      // Calculate new Y position so the node center aligns to avgCenterY
+      const newY = avgCenterY - dimensions.height / 2;
+      
+      debugLog(`Updating node ${nodeId}: old Y=${node.position.y}, new Y=${newY}, center will be at Y=${avgCenterY}, actual height=${dimensions.height}`);
+      
+      // Update position directly
+      flowNodes.value[nodeIndex].position.y = newY;
+    }
+  });
+  
+  // Force Vue reactivity by reassigning the array
+  flowNodes.value = [...flowNodes.value];
+  
+  // Use nextTick to ensure DOM updates before persisting
+  nextTick(() => {
+    debugLog('Persisting horizontal alignment changes');
+    updateField('data', {
+      nodes: flowNodes.value,
+      edges: flowEdges.value,
+    });
+    
+    // Ensure visual feedback is updated
+    updateNodeClasses();
+    
+    notifications.add({ 
+      title: 'Nodes Aligned', 
+      text: `${nodesToAlign.length} nodes aligned horizontally by their centers`, 
+      type: 'success' 
+    });
+  });
+};
+
+const alignNodesVertically = () => {
+  if (selectedNodes.value.size < 2) return;
+  
+  const selectedNodeIds = Array.from(selectedNodes.value);
+  const nodesToAlign = flowNodes.value.filter(node => selectedNodeIds.includes(node.id));
+  
+  if (nodesToAlign.length < 2) return;
+  
+  debugLog('Aligning nodes vertically (by handle centers):', selectedNodeIds);
+  
+  // Calculate the average X center position of all selected nodes
+  const avgCenterX = nodesToAlign.reduce((sum, node) => {
+    const center = getNodeCenter(node);
+    return sum + center.x;
+  }, 0) / nodesToAlign.length;
+  
+  debugLog('Average center X position:', avgCenterX);
+  
+  // Update positions so that node centers align vertically
+  selectedNodeIds.forEach(nodeId => {
+    const nodeIndex = flowNodes.value.findIndex(n => n.id === nodeId);
+    if (nodeIndex !== -1) {
+      const node = flowNodes.value[nodeIndex];
+      const dimensions = getActualNodeDimensions(nodeId);
+      
+      // Calculate new X position so the node center aligns to avgCenterX
+      const newX = avgCenterX - dimensions.width / 2;
+      
+      debugLog(`Updating node ${nodeId}: old X=${node.position.x}, new X=${newX}, center will be at X=${avgCenterX}, actual width=${dimensions.width}`);
+      
+      // Update position directly
+      flowNodes.value[nodeIndex].position.x = newX;
+    }
+  });
+  
+  // Force Vue reactivity by reassigning the array
+  flowNodes.value = [...flowNodes.value];
+  
+  // Use nextTick to ensure DOM updates before persisting
+  nextTick(() => {
+    debugLog('Persisting vertical alignment changes');
+    updateField('data', {
+      nodes: flowNodes.value,
+      edges: flowEdges.value,
+    });
+    
+    // Ensure visual feedback is updated
+    updateNodeClasses();
+    
+    notifications.add({ 
+      title: 'Nodes Aligned', 
+      text: `${nodesToAlign.length} nodes aligned vertically by their centers`, 
+      type: 'success' 
+    });
+  });
+};
+
+const clearSelection = () => {
+  selectedNodes.value.clear();
+  isMultiSelecting.value = false;
+  selectedNode.value = null;
+  
+  // Update visual feedback
+  updateNodeClasses();
 };
 
 const onConnectStart = (event: any) => {
@@ -808,26 +1012,40 @@ onUnmounted(() => {
 
 // Watchers
 watch(() => props.item, (newItem) => {
+  // Clear selection state when loading new data
+  selectedNodes.value.clear();
+  isMultiSelecting.value = false;
+  selectedNode.value = null;
+  selectedEdge.value = null;
+  
   if (newItem?.data) {
     try {
       const flowData = typeof newItem.data === 'string'
         ? JSON.parse(newItem.data)
         : newItem.data;
 
-      // Ensure all nodes have required properties
-      const validatedNodes = (flowData.nodes || []).map((node: Node, index: number) => ({
-        // Ensure every node has a stable id (fallback if missing)
-        id: node.id || `node-${index}-${Date.now()}`,
-        ...node,
-        data: {
-          label: node.data?.label || 'Unnamed',
-          name: node.data?.name || node.data?.label || 'Unnamed',
-          description: node.data?.description || '',
-          ...node.data,
-          // Provide the openCollection function to process nodes
-          ...(node.type === 'process' && { openCollection: handleOpenCollection }),
-        },
-      }));
+      // Ensure all nodes have required properties and clean classes
+      const validatedNodes = (flowData.nodes || []).map((node: Node, index: number) => {
+        // Clean any multi-selection classes from persisted data
+        const cleanClass = (typeof node.class === 'string' && node.class) 
+          ? node.class.replace(/\s*multi-selected\s*/g, ' ').trim()
+          : '';
+          
+        return {
+          // Ensure every node has a stable id (fallback if missing)
+          id: node.id || `node-${index}-${Date.now()}`,
+          ...node,
+          class: cleanClass,
+          data: {
+            label: node.data?.label || 'Unnamed',
+            name: node.data?.name || node.data?.label || 'Unnamed',
+            description: node.data?.description || '',
+            ...node.data,
+            // Provide the openCollection function to process nodes
+            ...(node.type === 'process' && { openCollection: handleOpenCollection }),
+          },
+        };
+      });
 
       flowNodes.value = validatedNodes;
       flowEdges.value = (flowData.edges || []).map((edge: Edge) => ({
@@ -864,6 +1082,11 @@ watch(() => props.item, (newItem) => {
 // Add a separate watcher for edges to debug
 watch(flowEdges, (newEdges, oldEdges) => {
   debugLog('Edges changed:', { oldCount: oldEdges.length, newCount: newEdges.length, newEdges });
+}, { deep: true });
+
+// Watch for changes in multi-selection to update visual classes
+watch([selectedNodes, isMultiSelecting], () => {
+  updateNodeClasses();
 }, { deep: true });
 </script>
 
@@ -931,6 +1154,42 @@ watch(flowEdges, (newEdges, oldEdges) => {
           <v-icon name="chevron_left" />
         </button>
 
+        <!-- Alignment Toolbar -->
+        <div 
+          v-if="isMultiSelecting && selectedNodes.size > 1 && isEditMode" 
+          class="alignment-toolbar"
+        >
+          <div class="alignment-toolbar-content">
+            <span class="alignment-label">{{ selectedNodes.size }} nodes selected</span>
+            <div class="alignment-buttons">
+              <button 
+                class="alignment-btn" 
+                @click="alignNodesHorizontally"
+                title="Align horizontally"
+              >
+                <v-icon name="horizontal_rule" />
+                <span>Horizontal</span>
+              </button>
+              <button 
+                class="alignment-btn" 
+                @click="alignNodesVertically"
+                title="Align vertically"
+              >
+                <v-icon name="vertical_align_center" />
+                <span>Vertical</span>
+              </button>
+              <button 
+                class="alignment-btn clear-btn" 
+                @click="clearSelection"
+                title="Clear selection"
+              >
+                <v-icon name="clear" />
+                <span>Clear</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <VueFlow
           v-model:nodes="flowNodes"
           v-model:edges="flowEdges"
@@ -942,8 +1201,6 @@ watch(flowEdges, (newEdges, oldEdges) => {
             decision: DecisionNode,
             offpage: OffPageNode
           }"
-          snap-to-grid
-          :snap-grid="[20, 20]"
           :nodes-draggable="isEditMode"
           :edges-updatable="isEditMode"
           :edges-reconnectable="isEditMode"
@@ -1105,6 +1362,16 @@ watch(flowEdges, (newEdges, oldEdges) => {
   box-shadow: 0 0 8px rgba(0, 102, 204, 0.3);
 }
 
+/* Multi-selection styling */
+.canvas-container :deep(.vue-flow__node.multi-selected .terminal-node),
+.canvas-container :deep(.vue-flow__node.multi-selected .process-node),
+.canvas-container :deep(.vue-flow__node.multi-selected .decision-node),
+.canvas-container :deep(.vue-flow__node.multi-selected .offpage-node) {
+  outline: 3px solid var(--theme--secondary, #28a745);
+  outline-offset: 3px;
+  box-shadow: 0 0 8px rgba(40, 167, 69, 0.3);
+}
+
 /* Follow mode focused node styling */
 .canvas-container :deep(.vue-flow__node.focused .terminal-node),
 .canvas-container :deep(.vue-flow__node.focused .process-node),
@@ -1208,5 +1475,94 @@ watch(flowEdges, (newEdges, oldEdges) => {
 
 .canvas-legend:hover {
   opacity: 1;
+}
+
+/* Alignment Toolbar */
+.alignment-toolbar {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  background: var(--theme--background, white);
+  border: 1px solid var(--theme--border-color, #e1e5e9);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem;
+  min-width: 320px;
+}
+
+.alignment-toolbar-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.alignment-label {
+  font-size: 0.875rem;
+  color: var(--theme--foreground-subdued, #6c757d);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.alignment-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.alignment-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--theme--background-accent, #f8f9fa);
+  border: 1px solid var(--theme--border-color, #e1e5e9);
+  border-radius: 6px;
+  color: var(--theme--foreground, #1a1a1a);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.alignment-btn:hover {
+  background: var(--theme--primary, #0066cc);
+  color: white;
+  border-color: var(--theme--primary, #0066cc);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.3);
+}
+
+.alignment-btn.clear-btn:hover {
+  background: var(--theme--danger, #dc3545);
+  border-color: var(--theme--danger, #dc3545);
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.alignment-btn:active {
+  transform: translateY(0);
+}
+
+.alignment-btn v-icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 768px) {
+  .alignment-toolbar {
+    min-width: 280px;
+    padding: 0.5rem;
+  }
+  
+  .alignment-toolbar-content {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .alignment-buttons {
+    width: 100%;
+    justify-content: center;
+  }
 }
 </style>

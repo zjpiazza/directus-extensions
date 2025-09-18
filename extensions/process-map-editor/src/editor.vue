@@ -119,7 +119,7 @@
 				<div class="program-selector-overlay">
 					<div class="program-selector-compact">
 						<label>Program:</label>
-						<select v-model="selectedProgram" class="program-select" @change="onProgramChange($event.target.value)">
+						<select v-model="selectedProgram" class="program-select">
 							<option value="">Select Program</option>
 							<option 
 								v-for="program in programs" 
@@ -590,23 +590,20 @@ async function fetchPrograms() {
 }
 
 // Keep UI in sync when selected program changes externally (e.g., from props)
-watch(() => selectedProgram.value, () => {
-	applyPhasesForCurrentProgram();
+watch(() => selectedProgram.value, async (newProgramId, oldProgramId) => {
+	if (newProgramId !== oldProgramId) {
+		console.log('Program changed from', oldProgramId, 'to', newProgramId);
+		// Save current program state into map before switching
+		if (oldProgramId) {
+			syncProgramFromPhases(oldProgramId);
+		}
+		// Apply phases for new program
+		applyPhasesForCurrentProgram();
+		await nextTick();
+		// Persist selection + current state snapshot
+		await freezeCurrentState();
+	}
 });
-
-// Handle program selection change
-async function onProgramChange(programId: string | number) {
-	// Save current program state into map
-	syncProgramFromPhases();
-	// Switch program
-	selectedProgram.value = programId;
-	console.log('Selected program:', programId);
-	// Apply phases for new program
-	applyPhasesForCurrentProgram();
-	await nextTick();
-	// Persist selection + current state snapshot
-	await freezeCurrentState();
-}
 
 // Framework phases data - will be initialized dynamically
 const phases = ref<Phase[]>([]);
@@ -901,12 +898,16 @@ function phasesToLinksMap(phasesArr: Phase[]): Record<string, any[]> {
 function applyPhasesForCurrentProgram() {
 	const key = getProgramKey(selectedProgram.value);
 	const links = programWorkflowLinks.value[key] || {};
+	console.log('Applying phases for program:', key, 'Links:', links);
 	loadWorkflowLinksFromState(links);
+	console.log('Applied phases:', phases.value.map(p => ({ id: p.id, workflowCount: p.workflows.length })));
 }
 
 function syncProgramFromPhases(programId?: string | number | null) {
 	const key = getProgramKey(programId ?? selectedProgram.value);
-	programWorkflowLinks.value[key] = phasesToLinksMap(phases.value);
+	const linksMap = phasesToLinksMap(phases.value);
+	programWorkflowLinks.value[key] = linksMap;
+	console.log('Synced program', key, 'with workflow links:', linksMap);
 }
 
 function initializeDefaultPhases() {
@@ -1211,10 +1212,10 @@ onMounted(async () => {
 }
 
 .add-workflow-btn {
-	background: var(--theme--background-accent, rgba(255, 255, 255, 0.2));
-	border: 1px solid var(--theme--border-color-subdued, rgba(255, 255, 255, 0.3));
+	background: var(--theme--primary, #7c3aed);
+	border: 1px solid var(--theme--primary, #7c3aed);
 	border-radius: 4px;
-	color: var(--theme--primary-foreground, white);
+	color: #ffffff;
 	padding: 4px;
 	cursor: pointer;
 	transition: all 0.2s ease;
@@ -1223,9 +1224,10 @@ onMounted(async () => {
 	justify-content: center;
 }
 
+
 .add-workflow-btn:hover {
-	background: var(--theme--background-accent-hover, rgba(255, 255, 255, 0.3));
-	border-color: var(--theme--border-color, rgba(255, 255, 255, 0.5));
+	background: var(--theme--primary-accent, #6d28d9);
+	border-color: #fff
 }
 
 .swim-lane-content {
@@ -1246,23 +1248,23 @@ onMounted(async () => {
 .workflow-item {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
-	padding: 0.5rem;
+	gap: 1rem;
+	padding: 1.25rem 1.5rem;
 	background: var(--theme--background, #f8fafc);
 	border: 1px solid var(--theme--border-color, #e5e7eb);
-	border-radius: 4px;
+	border-radius: 8px;
 	cursor: pointer;
-	font-size: 0.75rem;
-	line-height: 1.2;
+	font-size: 1.125rem;
+	line-height: 1.3;
 	transition: all 0.2s ease;
 	color: var(--theme--primary, #7c3aed);
+	min-height: 64px;
 }
 
 .workflow-item:hover {
 	background: var(--theme--background-accent, #ede9fe);
-	border-color: var(--theme--primary, #7c3aed);
+	border: 2px solid var(--theme--primary, #7c3aed);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px var(--theme--primary-shadow, rgba(124, 58, 237, 0.1));
 }
 
 /* Vue Flow custom styling */
@@ -1622,9 +1624,9 @@ onMounted(async () => {
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.5rem 0.75rem;
-	/* background: var(--theme--primary); */
-	color: var(--theme--primary-foreground);
-	border: none;
+	background: var(--theme--primary, #7c3aed);
+	color: #ffffff;
+	border: 1px solid var(--theme--primary, #7c3aed);
 	border-radius: var(--theme--border-radius);
 	font-size: 0.75rem;
 	font-weight: 500;
@@ -1634,7 +1636,8 @@ onMounted(async () => {
 }
 
 .add-workflow-btn:hover {
-	background: var(--theme--primary-accent);
+	background: var(--theme--primary-accent, #6d28d9);
+	border-color: var(--theme--primary-accent, #6d28d9);
 	transform: translateY(-1px);
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -1659,28 +1662,28 @@ onMounted(async () => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 0.5rem;
+	padding: 0.75rem 1rem;
 	background: var(--theme--background, #f8fafc);
 	border: 1px solid var(--theme--border-color, #e5e7eb);
-	border-radius: 4px;
+	border-radius: 6px;
 	cursor: pointer;
-	font-size: 0.75rem;
-	line-height: 1.2;
+	font-size: 0.875rem;
+	line-height: 1.3;
 	transition: all 0.2s ease;
 	color: var(--theme--primary, #7c3aed);
+	min-height: 48px;
 }
 
 .workflow-item:hover {
 	background: var(--theme--background-accent, #ede9fe);
-	border-color: var(--theme--primary, #7c3aed);
+	border: 2px solid var(--theme--primary, #7c3aed);
 	transform: translateY(-1px);
-	box-shadow: 0 2px 4px var(--theme--primary-shadow, rgba(124, 58, 237, 0.1));
 }
 
 .workflow-item-content {
 	display: flex;
 	align-items: center;
-	gap: 0.5rem;
+	gap: 1rem;
 	flex: 1;
 }
 
@@ -1696,6 +1699,7 @@ onMounted(async () => {
 
 .workflow-title {
 	flex: 1;
+	font-size: large;
 }
 
 .remove-workflow-btn {

@@ -76,6 +76,7 @@ const displayLabel = computed(() => {
   font-size: 16px; 
   flex-shrink: 0; 
   margin-top: 2px; /* Align icon with first line of text */
+  color: #ffffff;
 }
 
 .node-label {

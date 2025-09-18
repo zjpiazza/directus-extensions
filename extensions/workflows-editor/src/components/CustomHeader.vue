@@ -121,19 +121,19 @@ const breadcrumbs = computed(() => {
         <div class="mode-button-group">
           <button
             class="mode-btn"
-            :class="{ active: mode === 'edit' && !followMode }"
-            @click="handleModeChange('edit'); toggleFollowMode(false)"
-          >
-            <v-icon name="edit" />
-            Edit
-          </button>
-          <button
-            class="mode-btn"
             :class="{ active: mode === 'view' && !followMode }"
             @click="handleModeChange('view'); toggleFollowMode(false)"
           >
             <v-icon name="visibility" />
             View
+          </button>
+          <button
+            class="mode-btn"
+            :class="{ active: mode === 'edit' && !followMode }"
+            @click="handleModeChange('edit'); toggleFollowMode(false)"
+          >
+            <v-icon name="edit" />
+            Edit
           </button>
           <button
             class="mode-btn follow-btn"

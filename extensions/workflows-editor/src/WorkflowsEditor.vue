@@ -54,7 +54,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  mode: 'edit',
+  mode: 'view',
   edits: () => ({} as Record<string, any>),
   item: () => null,
   validationErrors: () => [],
@@ -163,7 +163,7 @@ const isMultiSelecting = ref(false);
  */
 
 // Mode-based behavior - add internal state as fallback
-const internalMode = ref<'edit' | 'view'>(props.mode || 'edit');
+const internalMode = ref<'edit' | 'view'>(props.mode || 'view');
 const isEditMode = computed(() => internalMode.value === 'edit');
 const isViewMode = computed(() => internalMode.value === 'view');
 
@@ -199,9 +199,14 @@ const { project, fitView, updateEdge, addEdges } = useVueFlow();
 
 // Computed properties
 const title = computed(() => {
-  return props.isNew
-    ? `Creating ${props.collectionInfo?.name || props.collection}`
-    : `Editing ${props.collectionInfo?.name || props.collection}`;
+  if (props.isNew) {
+    return `Creating ${props.collectionInfo?.name || props.collection}`;
+  }
+  
+  // Make title singular and mode-aware
+  const action = (internalMode.value === 'edit' && !followMode.value) ? 'Editing' : 'Viewing';
+  const itemType = (props.collectionInfo?.name || props.collection).replace(/s$/, ''); // Make singular
+  return `${action} ${itemType}`;
 });
 
 const hasChanges = computed(() => {

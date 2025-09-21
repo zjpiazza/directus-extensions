@@ -15,6 +15,7 @@ interface Props {
   mode: 'edit' | 'view';
   canEdit: boolean;
   followMode: boolean;
+  showDescriptions: boolean;
 }
 
 const props = defineProps<Props>();
@@ -27,6 +28,7 @@ const emit = defineEmits<{
   'update-flow-name': [value: string];
   'update-mode': [mode: 'edit' | 'view'];
   'toggle-follow-mode': [enabled: boolean];
+  'toggle-descriptions': [enabled: boolean];
 }>();
 
 const handleUpdateFlowName = (name: string) => {
@@ -39,6 +41,10 @@ const handleModeChange = (newMode: 'edit' | 'view') => {
 
 const toggleFollowMode = (enabled: boolean) => {
   emit('toggle-follow-mode', enabled);
+};
+
+const toggleDescriptions = (enabled: boolean) => {
+  emit('toggle-descriptions', enabled);
 };
 
 // Breadcrumbs
@@ -142,6 +148,22 @@ const breadcrumbs = computed(() => {
           >
             <v-icon name="gps_fixed" />
             Follow
+          </button>
+        </div>
+
+        <!-- Description Toggle (only visible in follow mode) -->
+        <div v-if="followMode" class="description-toggle">
+          <button
+            class="toggle-btn"
+            :class="{ active: showDescriptions }"
+            @click="toggleDescriptions(!showDescriptions)"
+            title="Toggle node descriptions"
+          >
+            <v-icon name="description" />
+            <span>Descriptions</span>
+            <div class="toggle-indicator" :class="{ active: showDescriptions }">
+              <div class="toggle-dot"></div>
+            </div>
           </button>
         </div>
 
@@ -453,5 +475,66 @@ const breadcrumbs = computed(() => {
 .mode-btn:focus {
   outline: none;
   box-shadow: inset 0 0 0 2px rgba(0, 102, 204, 0.3);
+}
+
+/* Description toggle styles */
+.description-toggle {
+  margin-left: 0.5rem;
+}
+
+.toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--theme--border-color, #e1e5e9);
+  border-radius: 6px;
+  background: var(--theme--background, white);
+  color: var(--theme--foreground-subdued, #6c757d);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+  background: var(--theme--background-accent, #f8f9fa);
+  color: var(--theme--foreground, #1a1a1a);
+  border-color: var(--theme--border-color-accent, #d0d7de);
+}
+
+.toggle-btn.active {
+  background: var(--theme--success-background, #d4edda);
+  color: var(--theme--success, #28a745);
+  border-color: var(--theme--success, #28a745);
+}
+
+.toggle-indicator {
+  width: 36px;
+  height: 20px;
+  background: var(--theme--border-color, #e1e5e9);
+  border-radius: 10px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.toggle-indicator.active {
+  background: var(--theme--success, #28a745);
+}
+
+.toggle-dot {
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.toggle-indicator.active .toggle-dot {
+  transform: translateX(16px);
 }
 </style>

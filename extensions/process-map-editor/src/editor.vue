@@ -12,7 +12,7 @@
 			
 			<!-- Vue Flow Canvas - Only show when fully initialized -->
 			<VueFlow
-				v-else
+				v-if="!isInitializing"
 				v-model:nodes="flowNodes"
 				v-model:edges="flowEdges"
 				:nodes-draggable="isEditMode"
@@ -392,8 +392,6 @@ async function freezeCurrentState() {
 		const viewport = getViewport();
 		
 		// Prepare the complete state data
-		// Ensure current phases are synced into program map before save
-		syncProgramFromPhases();
 		const completeState = {
 			nodes: flowNodes.value.map(node => ({
 				id: node.id,
@@ -412,41 +410,19 @@ async function freezeCurrentState() {
 				markerEnd: edge.markerEnd,
 				animated: edge.animated,
 				style: edge.style,
-				// Preserve any other edge properties
 				...edge
 			})),
 			phases: phases.value,
 			selectedProgram: selectedProgram.value,
 			separatorText: separatorText.value,
-			// Store workflow links grouped by phase
-			workflowLinks: phases.value.reduce((acc, phase) => {
-				acc[phase.id] = phase.workflows || [];
-				return acc;
-			}, {} as Record<string, any[]>),
-			// Also persist per-program mappings for fast switching
 			programWorkflowLinks: programWorkflowLinks.value,
-			viewport: {
-				x: viewport.x,
-				y: viewport.y,
-				zoom: viewport.zoom
-			}
+			viewport: viewport,
 		};
 
-		// Build the patch payload - always save to "state" field
-		const patchData = {
-			state: completeState
-		};
-
-		// For singleton collections, use the singleton endpoint
-		const endpoint = `/items/${props.collection}`;
-
-		// Make the PATCH request to singleton
-		await api.patch(endpoint, patchData);
-
-		// Also emit the input event to keep Directus form in sync
+		// Emit the input event to keep Directus form in sync
 		emit('input', completeState);
 
-		console.log('Process map state saved successfully via PATCH');
+		console.log('Process map state saved successfully via emit');
 		
 	} catch (error) {
 		console.error('Failed to save process map state:', error);
@@ -484,26 +460,30 @@ async function loadSavedState() {
 			
 			// Load workflow links from saved state
 			if (savedData.programWorkflowLinks) {
+				console.log('LOADING programWorkflowLinks from saved state:', JSON.stringify(savedData.programWorkflowLinks, null, 2));
 				programWorkflowLinks.value = savedData.programWorkflowLinks;
+				console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 				applyPhasesForCurrentProgram();
 			} else if (savedData.workflowLinks) {
 				// Backward compatibility: single set of workflow links not per program
+				console.log('LOADING workflowLinks (backward compatibility):', JSON.stringify(savedData.workflowLinks, null, 2));
 				programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
+				console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 				applyPhasesForCurrentProgram();
 			} else if (savedData.phases) {
 				// Backward compatibility: phases array
+				console.log('LOADING phases (backward compatibility):', savedData.phases);
 				phases.value = savedData.phases;
 				syncProgramFromPhases();
 			} else {
 				// Initialize with default phases if no saved data
+				console.log('NO SAVED DATA - initializing default phases');
 				initializeDefaultPhases();
 				syncProgramFromPhases();
 			}
 			
 			if (savedData.viewport) {
-				setTimeout(() => {
-					setViewport(savedData.viewport);
-				}, 100);
+				setViewport(savedData.viewport);
 			}
 			console.log('Saved state loaded from props.value');
 			return;
@@ -532,16 +512,22 @@ async function loadSavedState() {
 				
 				// Load workflow links from saved state
 				if (savedData.programWorkflowLinks) {
+					console.log('LOADING programWorkflowLinks from item.state:', JSON.stringify(savedData.programWorkflowLinks, null, 2));
 					programWorkflowLinks.value = savedData.programWorkflowLinks;
+					console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 					applyPhasesForCurrentProgram();
 				} else if (savedData.workflowLinks) {
 					// Backward compatibility: single set of workflow links not per program
+					console.log('LOADING workflowLinks from item.state (backward compatibility):', JSON.stringify(savedData.workflowLinks, null, 2));
 					programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
+					console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 					applyPhasesForCurrentProgram();
 				} else if (savedData.phases) {
+					console.log('LOADING phases from item.state (backward compatibility):', savedData.phases);
 					phases.value = savedData.phases;
 					syncProgramFromPhases();
 				} else {
+					console.log('NO SAVED DATA in item.state - initializing default phases');
 					initializeDefaultPhases();
 					syncProgramFromPhases();
 				}
@@ -593,12 +579,18 @@ async function fetchPrograms() {
 watch(() => selectedProgram.value, async (newProgramId, oldProgramId) => {
 	if (newProgramId !== oldProgramId) {
 		console.log('Program changed from', oldProgramId, 'to', newProgramId);
+		console.log('BEFORE SWITCH - programWorkflowLinks:', JSON.stringify(programWorkflowLinks.value, null, 2));
+		
 		// Save current program state into map before switching
 		if (oldProgramId) {
+			console.log('Syncing old program', oldProgramId, 'with current phases:', phases.value.map(p => ({ id: p.id, count: p.workflows.length })));
 			syncProgramFromPhases(oldProgramId);
+			console.log('AFTER SYNC OLD - programWorkflowLinks:', JSON.stringify(programWorkflowLinks.value, null, 2));
 		}
 		// Apply phases for new program
+		await nextTick();
 		applyPhasesForCurrentProgram();
+		console.log('AFTER APPLYING NEW - programWorkflowLinks:', JSON.stringify(programWorkflowLinks.value, null, 2));
 		await nextTick();
 		// Persist selection + current state snapshot
 		await freezeCurrentState();
@@ -686,6 +678,7 @@ const draftState = computed(() => ({
 	phases: phases.value,
 	selectedProgram: selectedProgram.value,
 	separatorText: separatorText.value,
+	programWorkflowLinks: programWorkflowLinks.value, // Add this line
 	viewport: getViewport() || { x: 0, y: 0, zoom: 1 }
 }));
 
@@ -849,34 +842,7 @@ async function onWorkflowReorder(phaseId: string, event: any) {
 }
 
 // Helper functions for state management
-function loadWorkflowLinksFromState(workflowLinks: Record<string, any[]>) {
-	phases.value = [
-		{
-			id: 'request_service',
-			title: 'REQUEST SERVICE/REPORT',
-			color: 'var(--theme--primary, #7c3aed)',
-			workflows: workflowLinks.request_service || []
-		},
-		{
-			id: 'evaluate_service',
-			title: 'EVALUATE SERVICE',
-			color: 'var(--theme--primary, #7c3aed)',
-			workflows: workflowLinks.evaluate_service || []
-		},
-		{
-			id: 'provide_services',
-			title: 'PROVIDE SERVICES AND REEVALUATE SERVICES',
-			color: 'var(--theme--primary, #7c3aed)',
-			workflows: workflowLinks.provide_services || []
-		},
-		{
-			id: 'end_of_service',
-			title: 'END OF SERVICES',
-			color: 'var(--theme--primary, #7c3aed)',
-			workflows: workflowLinks.end_of_service || []
-		}
-	];
-}
+
 
 function getProgramKey(id: string | number | null | undefined): string {
 	return id !== null && id !== undefined && id !== '' ? String(id) : 'default';
@@ -885,7 +851,7 @@ function getProgramKey(id: string | number | null | undefined): string {
 function phasesToLinksMap(phasesArr: Phase[]): Record<string, any[]> {
 	const map: Record<string, any[]> = {};
 	for (const phase of phasesArr) {
-		map[phase.id] = Array.isArray(phase.workflows) ? [...phase.workflows] : [];
+		map[phase.id] = Array.isArray(phase.workflows) ? phase.workflows.map(w => ({ ...w })) : [];
 	}
 	// Ensure all known keys exist
 	map.request_service = map.request_service || [];
@@ -894,6 +860,37 @@ function phasesToLinksMap(phasesArr: Phase[]): Record<string, any[]> {
 	map.end_of_service = map.end_of_service || [];
 	return map;
 }
+
+function loadWorkflowLinksFromState(workflowLinks: Record<string, any[]>) {
+	phases.value = [
+		{
+			id: 'request_service',
+			title: 'REQUEST SERVICE/REPORT',
+			color: 'var(--theme--primary, #7c3aed)',
+			workflows: workflowLinks.request_service ? workflowLinks.request_service.map(w => ({ ...w })) : []
+		},
+		{
+			id: 'evaluate_service',
+			title: 'EVALUATE SERVICE',
+			color: 'var(--theme--primary, #7c3aed)',
+			workflows: workflowLinks.evaluate_service ? workflowLinks.evaluate_service.map(w => ({ ...w })) : []
+		},
+		{
+			id: 'provide_services',
+			title: 'PROVIDE SERVICES AND REEVALUATE SERVICES',
+			color: 'var(--theme--primary, #7c3aed)',
+			workflows: workflowLinks.provide_services ? workflowLinks.provide_services.map(w => ({ ...w })) : []
+		},
+		{
+			id: 'end_of_service',
+			title: 'END OF SERVICES',
+			color: 'var(--theme--primary, #7c3aed)',
+			workflows: workflowLinks.end_of_service ? workflowLinks.end_of_service.map(w => ({ ...w })) : []
+		}
+	];
+}
+
+
 
 function applyPhasesForCurrentProgram() {
 	const key = getProgramKey(selectedProgram.value);
@@ -904,13 +901,19 @@ function applyPhasesForCurrentProgram() {
 }
 
 function syncProgramFromPhases(programId?: string | number | null) {
+	console.log('SYNC: syncProgramFromPhases() called for program:', programId ?? selectedProgram.value);
+	console.log('SYNC: Current phases:', JSON.stringify(phases.value, null, 2));
+	console.log('SYNC: Current programWorkflowLinks before sync:', JSON.stringify(programWorkflowLinks.value, null, 2));
 	const key = getProgramKey(programId ?? selectedProgram.value);
 	const linksMap = phasesToLinksMap(phases.value);
+	console.log('SYNC: key=', key, 'linksMap=', JSON.stringify(linksMap, null, 2));
 	programWorkflowLinks.value[key] = linksMap;
-	console.log('Synced program', key, 'with workflow links:', linksMap);
+	console.log('SYNC RESULT: programWorkflowLinks=', JSON.stringify(programWorkflowLinks.value, null, 2));
 }
 
 function initializeDefaultPhases() {
+	console.log('INIT: initializeDefaultPhases() called - this will create empty phases');
+	console.log('INIT: Current programWorkflowLinks before init:', JSON.stringify(programWorkflowLinks.value, null, 2));
 	phases.value = [
 		{
 			id: 'request_service',
@@ -937,6 +940,7 @@ function initializeDefaultPhases() {
 			workflows: []
 		}
 	];
+	console.log('INIT: initializeDefaultPhases() completed - phases now have empty workflows');
 }
 
 // Handle separator text editing
@@ -1021,10 +1025,12 @@ function resetToDefaultLayout() {
 }
 
 // Initialize from props
-onMounted(async () => {
+	onMounted(async () => {
+	console.log('onMounted: Starting initialization');
 	try {
 		// Set initializing state
 		isInitializing.value = true;
+		console.log('onMounted: isInitializing set to true');
 		
 		// Hide the default Directus header
 		const headerBar = document.querySelector('.header-bar');

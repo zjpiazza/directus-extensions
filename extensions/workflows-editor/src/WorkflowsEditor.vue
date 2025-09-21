@@ -177,6 +177,7 @@ watch(() => props.mode, (newMode) => {
 // Follow mode state
 const followMode = ref(false);
 const focusedNodeId = ref<string | null>(null);
+const showDescriptions = ref(false);
 const availableCollections = ref<any[]>([]);
 const availableWorkflows = ref<Array<{ id: string; name: string }>>([]);
 
@@ -235,6 +236,27 @@ const usedWorkflowIds = computed(() => {
     .filter(node => node.type === 'offpage' && node.data.targetWorkflowId)
     .map(node => node.data.targetWorkflowId)
     .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
+});
+
+// Computed property for focused node description
+const focusedNodeDescription = computed(() => {
+  if (!focusedNodeId.value || !showDescriptions.value) return null;
+  
+  const focusedNode = flowNodes.value.find(node => node.id === focusedNodeId.value);
+  if (!focusedNode) return null;
+  
+  const description = focusedNode.data?.description?.trim();
+  // Show a default message if no description is available
+  const displayDescription = description || 'No description available for this node.';
+  
+  return {
+    id: focusedNode.id,
+    title: focusedNode.data?.name || focusedNode.data?.label || 'Untitled',
+    description: displayDescription,
+    type: focusedNode.type,
+    position: focusedNode.position,
+    hasDescription: !!description
+  };
 });
 
 // Local flow name state to prevent blanking after save
@@ -356,7 +378,51 @@ const toggleFollowMode = (enabled: boolean) => {
       }
     });
     focusedNodeId.value = null;
+    showDescriptions.value = false; // Turn off descriptions when leaving follow mode
   }
+};
+
+const toggleDescriptions = (enabled: boolean) => {
+  showDescriptions.value = enabled;
+};
+
+// Helper function to get node type icon
+const getNodeIcon = (type: string): string => {
+  const iconMap: Record<string, string> = {
+    start: 'play_arrow',
+    end: 'stop',
+    process: 'task',
+    decision: 'help',
+    offpage: 'link',
+    terminal: 'terminal'
+  };
+  return iconMap[type] || 'circle';
+};
+
+// Helper function to format node type for display
+const formatNodeType = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    start: 'Start Node',
+    end: 'End Node', 
+    process: 'Process Node',
+    decision: 'Decision Node',
+    offpage: 'Off-page Connector',
+    terminal: 'Terminal Node'
+  };
+  return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
+};
+
+// Helper function to position the description dialog in a fixed location
+const getDescriptionDialogPosition = () => {
+  if (!focusedNodeId.value) return {};
+  
+  // Fixed position in top-left corner of the canvas
+  return {
+    position: 'absolute',
+    top: '20px',
+    left: '20px',
+    zIndex: 1000
+  };
 };
 
 // Panel toggle functions
@@ -1112,6 +1178,7 @@ watch([selectedNodes, isMultiSelecting], () => {
       :mode="internalMode"
       :can-edit="canEdit"
       :follow-mode="followMode"
+      :show-descriptions="showDescriptions"
       @save="saveFlow"
       @delete="() => emit('delete')"
       @archive="() => emit('archive')"
@@ -1119,6 +1186,7 @@ watch([selectedNodes, isMultiSelecting], () => {
       @update-flow-name="handleUpdateFlowName"
       @update-mode="handleModeChange"
       @toggle-follow-mode="toggleFollowMode"
+      @toggle-descriptions="toggleDescriptions"
     />
 
     <!-- Main Editor Layout -->
@@ -1194,6 +1262,29 @@ watch([selectedNodes, isMultiSelecting], () => {
             </div>
           </div>
         </div>
+
+        <!-- Node Description Dialog -->
+        <Transition name="description-fade">
+          <div 
+            v-if="focusedNodeDescription && followMode && showDescriptions" 
+            class="node-description-dialog"
+            :class="{ 'no-description': !focusedNodeDescription.hasDescription }"
+            :style="getDescriptionDialogPosition()"
+          >
+            <div class="description-header">
+              <div class="description-title">
+                <v-icon :name="getNodeIcon(focusedNodeDescription.type)" />
+                <span>{{ focusedNodeDescription.title }}</span>
+              </div>
+              <div class="description-type">{{ formatNodeType(focusedNodeDescription.type) }}</div>
+            </div>
+            <div class="description-content">
+              <p :class="{ 'no-description-text': !focusedNodeDescription.hasDescription }">
+                {{ focusedNodeDescription.description }}
+              </p>
+            </div>
+          </div>
+        </Transition>
 
         <VueFlow
           v-model:nodes="flowNodes"
@@ -1568,6 +1659,169 @@ watch([selectedNodes, isMultiSelecting], () => {
   .alignment-buttons {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* Node Description Dialog Styles */
+.node-description-dialog {
+  width: 300px;
+  max-width: calc(100vw - 40px);
+  background: var(--theme--background, white);
+  border: 1px solid var(--theme--border-color, #e1e5e9);
+  border-radius: 12px;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+  pointer-events: none; /* Allow interaction with nodes underneath */
+}
+
+.description-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--theme--border-color-subdued, #f1f3f5);
+  background: linear-gradient(135deg, 
+    var(--theme--background-accent, #f8f9fa) 0%, 
+    var(--theme--background, white) 100%);
+}
+
+.description-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--theme--foreground, #1a1a1a);
+  margin-bottom: 0.25rem;
+}
+
+.description-title .v-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--theme--primary, #0066cc);
+}
+
+.description-type {
+  font-size: 0.75rem;
+  color: var(--theme--foreground-subdued, #6c757d);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.description-content {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.description-content p {
+  margin: 0;
+  color: var(--theme--foreground, #1a1a1a);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.description-content .no-description-text {
+  color: var(--theme--foreground-subdued, #6c757d);
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.node-description-dialog.no-description {
+  opacity: 0.9;
+}
+
+.node-description-dialog.no-description .description-header {
+  background: linear-gradient(135deg, 
+    var(--theme--background-subdued, #f1f3f5) 0%, 
+    var(--theme--background, white) 100%);
+}
+
+/* Fade in/out animation for description dialog */
+.description-fade-enter-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.description-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.description-fade-enter-from {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  filter: blur(4px);
+}
+
+.description-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.98);
+  filter: blur(2px);
+}
+
+.description-fade-enter-to,
+.description-fade-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+/* Enhanced entrance animation with bounce effect */
+.description-fade-enter-active .description-header {
+  animation: slideDownBounce 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.description-fade-enter-active .description-content {
+  animation: fadeInUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) 0.1s both;
+}
+
+@keyframes slideDownBounce {
+  0% {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  60% {
+    opacity: 0.8;
+    transform: translateY(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 480px) {
+  .node-description-dialog {
+    width: 280px;
+    margin: 0 20px;
+  }
+  
+  .description-header {
+    padding: 0.875rem 1rem 0.625rem;
+  }
+  
+  .description-content {
+    padding: 0.875rem 1rem 1rem;
+  }
+  
+  .description-title {
+    font-size: 0.875rem;
+  }
+  
+  .description-content p {
+    font-size: 0.8125rem;
   }
 }
 </style>

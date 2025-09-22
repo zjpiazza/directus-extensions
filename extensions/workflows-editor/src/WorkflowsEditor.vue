@@ -20,6 +20,9 @@ import ProcessNode from './flow-nodes/ProcessNode.vue';
 import DecisionNode from './flow-nodes/DecisionNode.vue';
 import OffPageNode from './flow-nodes/OffPageNode.vue';
 
+// Import custom edge component
+import LabeledEdge from './components/LabeledEdge.vue';
+
 // Import composables
 import { useWorkflowData } from './composables/useWorkflowData';
 
@@ -138,6 +141,15 @@ const updateNodeClasses = () => {
 // Override updateNodeData to also persist changes
 const updateNodeData = () => {
   baseUpdateNodeData();
+  // Update the field to persist the changes
+  updateField('data', {
+    nodes: flowNodes.value,
+    edges: flowEdges.value,
+  });
+};
+
+// Update edge data and persist changes
+const updateEdgeData = () => {
   // Update the field to persist the changes
   updateField('data', {
     nodes: flowNodes.value,
@@ -948,6 +960,7 @@ const onConnect = (connection: Connection) => {
     animated: true,
     style: { strokeWidth: 2 },
     markerEnd: { type: 'arrowclosed' },
+    data: { label: '' }, // Initialize with empty label
   };
 
   debugLog('✅ Creating new edge', newEdge);
@@ -1126,6 +1139,7 @@ watch(() => props.item, (newItem) => {
         animated: edge.animated !== false,
         style: edge.style || { strokeWidth: 2 },
         markerEnd: edge.markerEnd || { type: 'arrowclosed' },
+        data: { label: edge.data?.label || '', ...edge.data }, // Ensure data structure with label
       }));
 
       if (validatedNodes && validatedNodes.length > 0) {
@@ -1297,6 +1311,10 @@ watch([selectedNodes, isMultiSelecting], () => {
             decision: DecisionNode,
             offpage: OffPageNode
           }"
+          :edge-types="{
+            step: LabeledEdge
+          }"
+          :default-edge-type="'step'"
           :nodes-draggable="isEditMode"
           :edges-updatable="isEditMode"
           :edges-reconnectable="isEditMode"
@@ -1353,6 +1371,7 @@ watch([selectedNodes, isMultiSelecting], () => {
         :edits="props.edits"
         :item="props.item"
         @update-node-data="updateNodeData"
+        @update-edge-data="updateEdgeData"
         @update-form-collection="updateFormCollection"
         @update-off-page-target="updateOffPageTarget"
         @delete-selected-node="deleteSelectedNode"

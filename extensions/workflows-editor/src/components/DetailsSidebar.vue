@@ -30,6 +30,7 @@ const props = defineProps<Props>();
 
 const emit = defineEmits<{
   'update-node-data': [];
+  'update-edge-data': [];
   'update-form-collection': [collectionName: string];
   'update-off-page-target': [workflowId: string];
   'delete-selected-node': [];
@@ -40,6 +41,10 @@ const emit = defineEmits<{
 
 const updateNodeData = () => {
   emit('update-node-data');
+};
+
+const updateEdgeData = () => {
+  emit('update-edge-data');
 };
 
 const updateFormCollection = (collectionName: string) => {
@@ -288,6 +293,16 @@ const handleToggle = () => {
       <div v-else-if="selectedEdge">
         <h3>Edge Details</h3>
         <div class="edge-properties">
+          <div class="property-group">
+            <label>Label</label>
+            <input
+              v-model="selectedEdge.data.label"
+              :readonly="isViewMode"
+              class="input-field"
+              placeholder="Enter edge label..."
+              @input="isEditMode ? updateEdgeData : undefined"
+            />
+          </div>
           <div class="property-group">
             <label>Edge ID</label>
             <input

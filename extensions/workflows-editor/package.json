@@ -22,7 +22,10 @@
 		"build": "directus-extension build",
 		"dev": "directus-extension build -w --no-minify",
 		"link": "directus-extension link",
-		"validate": "directus-extension validate"
+		"validate": "directus-extension validate",
+		"test": "vitest",
+		"test:run": "vitest run",
+		"test:ui": "vitest --ui"
 	},
 	"dependencies": {
 		"@vue-flow/background": "^1.0.2",

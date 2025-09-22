@@ -7,11 +7,18 @@
     "build": "pnpm -r build",
     "dev": "pnpm -r dev",
     "clean": "pnpm -r clean",
-    "type-check": "pnpm -r type-check"
+    "type-check": "pnpm -r type-check",
+    "test": "pnpm -r test",
+    "test:run": "pnpm -r test:run",
+    "test:ui": "pnpm -r test:ui"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@vue/test-utils": "^2.4.0",
+    "@vitejs/plugin-vue": "^5.0.0",
+    "happy-dom": "^15.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
   },
   "packageManager": "pnpm@9.0.0"
 }

@@ -1,0 +1,57 @@
+{
+	"name": "directus-tenant-hook",
+	"description": "Please enter a description for your extension",
+	"icon": "extension",
+	"version": "1.0.0",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-hook"
+	],
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/index.js"
+		},
+		"host": "^10.10.0",
+		"entries": [
+			{
+				"type": "hook",
+				"name": "tenant-hook",
+				"source": "src/hook/index.ts"
+			},
+			{
+				"type": "endpoint",
+				"name": "tenant-reconciliation",
+				"source": "src/endpoint/index.ts"
+			}
+		]
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"postbuild": "cp -r src/templates dist",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"validate": "directus-extension validate"
+	},
+	"devDependencies": {
+		"@directus/extensions": "^3.0.10",
+		"@directus/extensions-sdk": "16.0.1",
+		"@types/express": "^5.0.3",
+		"@types/node": "^24.3.0",
+		"typescript": "^5.9.2"
+	},
+	"dependencies": {
+		"@octokit/rest": "^22.0.0",
+		"dotenv": "^17.2.1",
+		"fast-glob": "^3.3.3",
+		"handlebars": "^4.7.8",
+		"octokit": "^5.0.3",
+		"yaml": "^2.8.1"
+	}
+}

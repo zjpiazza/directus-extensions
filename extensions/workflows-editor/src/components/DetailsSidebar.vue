@@ -13,6 +13,13 @@ interface Workflow {
   name: string;
 }
 
+interface Page {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string;
+}
+
 interface Props {
   isEditMode: boolean;
   isViewMode: boolean;
@@ -20,6 +27,7 @@ interface Props {
   selectedEdge: Edge | null;
   availableCollections: Collection[];
   availableWorkflows: Workflow[];
+  availablePages: Page[];
   edits: Record<string, any>;
   item: Record<string, any> | null;
   usedWorkflowIds: string[];
@@ -33,10 +41,12 @@ const emit = defineEmits<{
   'update-edge-data': [];
   'update-form-collection': [collectionName: string];
   'update-form-collections': [collections: Array<{ collection: string; label?: string }>];
-  'update-off-page-target': [workflowId: string];
+  'update-end-node-target': [workflowId: string];
+  'update-page-node-target': [pageId: string];
   'delete-selected-node': [];
   'delete-selected-edge': [];
   'navigate-to-workflow': [workflowId: string];
+  'navigate-to-page': [pageId: string];
   'toggle': [];
 }>();
 
@@ -76,8 +86,16 @@ const updateCollectionLink = (index: number, field: 'collection' | 'label', valu
   }
 };
 
-const updateOffPageTarget = (workflowId: string) => {
-  emit('update-off-page-target', workflowId);
+const updateEndNodeTarget = (workflowId: string) => {
+  emit('update-end-node-target', workflowId);
+};
+
+const updatePageNodeTarget = (pageId: string) => {
+  emit('update-page-node-target', pageId);
+};
+
+const navigateToPage = (pageId: string) => {
+  emit('navigate-to-page', pageId);
 };
 
 const deleteSelectedNode = () => {
@@ -206,7 +224,7 @@ const getEdgeTypeDescription = (edgeType: string) => {
 
     <!-- Dynamic Content Based on Selection -->
     <div class="sidebar-section">
-      <!-- Workflow Legend (shown when nothing is selected and there are off-page connectors) -->
+      <!-- Workflow Legend (shown when nothing is selected and there are end node connectors) -->
       <WorkflowLegend
         v-if="!selectedNode && !selectedEdge"
         :workflows="availableWorkflows"
@@ -496,14 +514,14 @@ const getEdgeTypeDescription = (edgeType: string) => {
           />
         </div>
 
-        <!-- Off-page Connector Workflow Selection -->
-        <div v-if="selectedNode.type === 'offpage'" class="property-group">
+        <!-- End Node Workflow Selection -->
+        <div v-if="selectedNode.type === 'end'" class="property-group">
           <label>Target Workflow</label>
           <select
             :value="selectedNode.data.targetWorkflowId"
             :disabled="isViewMode"
             class="select-field"
-            @change="isEditMode ? updateOffPageTarget(($event.target as HTMLSelectElement).value) : undefined"
+            @change="isEditMode ? updateEndNodeTarget(($event.target as HTMLSelectElement).value) : undefined"
           >
             <option value="">Select workflow to link to...</option>
             <option
@@ -514,7 +532,7 @@ const getEdgeTypeDescription = (edgeType: string) => {
               {{ workflow?.name || 'Unnamed Workflow' }}
             </option>
           </select>
-           <div class="offpage-actions" v-if="selectedNode.data.targetWorkflowId" style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+           <div class="end-node-actions" v-if="selectedNode.data.targetWorkflowId" style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
               <button
                  class="btn btn-secondary small"
                  :disabled="isEditMode"
@@ -527,7 +545,47 @@ const getEdgeTypeDescription = (edgeType: string) => {
              <button
                v-if="isEditMode"
                class="btn btn-secondary small"
-               @click="updateOffPageTarget('')"
+               @click="updateEndNodeTarget('')"
+               title="Clear link"
+             >
+               <v-icon name="close" />
+               Clear Link
+             </button>
+          </div>
+        </div>
+
+        <!-- Page Node Page Selection -->
+        <div v-if="selectedNode.type === 'page'" class="property-group">
+          <label>Target Page</label>
+          <select
+            :value="selectedNode.data.targetPageId"
+            :disabled="isViewMode"
+            class="select-field"
+            @change="isEditMode ? updatePageNodeTarget(($event.target as HTMLSelectElement).value) : undefined"
+          >
+            <option value="">Select page to link to...</option>
+            <option
+              v-for="page in props.availablePages"
+              :key="page.id"
+              :value="page.id"
+            >
+              {{ page.name }}
+            </option>
+          </select>
+           <div class="page-node-actions" v-if="selectedNode.data.targetPageId" style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <button
+                 class="btn btn-secondary small"
+                 :disabled="isEditMode"
+                 :title="isEditMode ? 'Switch to view mode to open page' : 'Open linked page'"
+                 @click="!isEditMode ? navigateToPage(selectedNode.data.targetPageId) : undefined"
+               >
+                 <v-icon name="link" />
+                 Open Page
+               </button>
+             <button
+               v-if="isEditMode"
+               class="btn btn-secondary small"
+               @click="updatePageNodeTarget('')"
                title="Clear link"
              >
                <v-icon name="close" />

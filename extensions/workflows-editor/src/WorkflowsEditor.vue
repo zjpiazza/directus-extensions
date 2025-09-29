@@ -11,6 +11,7 @@ import CustomHeader from './components/CustomHeader.vue';
 import NodePalette from './components/NodePalette.vue';
 import DetailsSidebar from './components/DetailsSidebar.vue';
 import WorkflowLegend from './components/WorkflowLegend.vue';
+import PageNavigation from './components/PageNavigation.vue';
 
 // Import your custom node components
 import TerminalNode from './flow-nodes/TerminalNode.vue';
@@ -19,6 +20,7 @@ import EndNode from './flow-nodes/EndNode.vue';
 import ProcessNode from './flow-nodes/ProcessNode.vue';
 import DecisionNode from './flow-nodes/DecisionNode.vue';
 import OffPageNode from './flow-nodes/OffPageNode.vue';
+import PageNode from './flow-nodes/PageNode.vue';
 
 // Import custom edge component
 import LabeledEdge from './components/LabeledEdge.vue';
@@ -119,8 +121,18 @@ watch(() => props.edits, (val) => {
 const {
   flowNodes,
   flowEdges,
+  pages,
+  currentPageId,
   selectedNode,
+  currentPage,
+  pageBreadcrumbs,
+  visibleNodes,
+  visibleEdges,
   updateNodeData: baseUpdateNodeData,
+  addPage,
+  removePage,
+  navigateToPage,
+  updatePageCounts,
 } = useWorkflowData();
 
 // Function to update node classes for multi-selection visual feedback
@@ -142,10 +154,13 @@ const updateNodeClasses = () => {
 // Override updateNodeData to also persist changes
 const updateNodeData = () => {
   baseUpdateNodeData();
+  updatePageCounts();
   // Update the field to persist the changes
   updateField('data', {
     nodes: flowNodes.value,
     edges: flowEdges.value,
+    pages: pages.value,
+    currentPageId: currentPageId.value,
   });
 };
 
@@ -155,6 +170,8 @@ const updateEdgeData = () => {
   updateField('data', {
     nodes: flowNodes.value,
     edges: flowEdges.value,
+    pages: pages.value,
+    currentPageId: currentPageId.value,
   });
 };
 
@@ -206,6 +223,7 @@ const nodeTypes = [
   { type: 'process', subtype: 'form', label: 'Form', icon: 'description' },
   { type: 'decision', label: 'Decision', icon: 'help' },
   { type: 'offpage', label: 'Off-page Connector', icon: 'link' },
+  { type: 'page', label: 'Page', icon: 'folder_open' },
 ];
 
 // Vue Flow composable
@@ -306,7 +324,13 @@ const saveFlow = async () => {
   debugLog('saveFlow invoked (manual API mode)');
   try {
     localSaving.value = true;
-    const flowData = { nodes: flowNodes.value, edges: flowEdges.value };
+    updatePageCounts(); // Update counts before saving
+    const flowData = { 
+      nodes: flowNodes.value, 
+      edges: flowEdges.value,
+      pages: pages.value,
+      currentPageId: currentPageId.value
+    };
     const fieldKey = 'data';
     const payload: Record<string, any> = { [fieldKey]: flowData };
 
@@ -369,7 +393,12 @@ const cloneWorkflow = async () => {
   debugLog('cloneWorkflow invoked');
   try {
     localSaving.value = true;
-    const flowData = { nodes: flowNodes.value, edges: flowEdges.value };
+    const flowData = { 
+      nodes: flowNodes.value, 
+      edges: flowEdges.value,
+      pages: pages.value,
+      currentPageId: currentPageId.value
+    };
     
     // Create clone payload with modified name
     const originalName = flowName.value?.trim() || props.item?.name || 'Untitled Workflow';
@@ -653,18 +682,45 @@ const onDrop = (event: DragEvent) => {
       name: nodeType.label,
       description: '',
       nodeSize: defaultNodeSize,
+      pageId: currentPageId.value, // Assign to current page
       ...(nodeType.subtype && { subtype: nodeType.subtype }),
       ...(nodeType.subtype === 'form' && { targetCollection: '' }),
       // Provide the openCollection function to process nodes
       ...(nodeType.type === 'process' && { openCollection: handleOpenCollection }),
+      // Add page-specific data for page nodes
+      ...(nodeType.type === 'page' && { 
+        pageId: `page-${Date.now()}`,
+        nodeCount: 0,
+        color: '#3b82f6'
+      }),
     },
   };
 
   flowNodes.value.push(newNode);
+  
+  // If it's a page node, create the corresponding page entry
+  if (nodeType.type === 'page' && newNode.data.pageId) {
+    addPage({
+      id: newNode.data.pageId,
+      name: newNode.data.name || newNode.data.label || 'New Page',
+      description: newNode.data.description || '',
+      parentPageId: currentPageId.value,
+      color: newNode.data.color || '#3b82f6'
+    });
+  }
+  
+  // Update node data and persist
+  updateNodeData();
 };
 
-const onNodeClick = (event: { node: Node; event: MouseEvent }) => {
+const onNodeClick = (event: { node: Node; event: MouseEvent }) => {  
   const nodeId = event.node.id;
+  
+  // Handle page node navigation in view mode
+  if (event.node.type === 'page' && !isEditMode.value && event.node.data?.pageId) {
+    handleEnterPage(event.node.data.pageId);
+    return;
+  }
   
   // Handle multi-selection with Ctrl/Cmd key
   if (event.event.ctrlKey || event.event.metaKey) {
@@ -767,6 +823,47 @@ const handleOpenCollection = (collectionName: string) => {
   const collectionUrl = `/admin/content/${collectionName}/+`;
   // Open in a new window/tab
   window.open(collectionUrl, '_blank');
+};
+
+// Page navigation handlers
+const handleNavigateToPage = (pageId: string) => {
+  navigateToPage(pageId);
+  
+  // Fit view to show the nodes on the new page
+  nextTick(() => {
+    if (visibleNodes.value.length > 0) {
+      fitView({ 
+        nodes: visibleNodes.value.map(n => n.id),
+        duration: 400,
+        padding: 0.1
+      });
+    }
+  });
+};
+
+const handleEnterPage = (pageId: string) => {
+  debugLog('handleEnterPage called with pageId:', pageId);
+  
+  // Create the page if it doesn't exist
+  const existingPage = pages.value.find(p => p.id === pageId);
+  if (!existingPage) {
+    const pageNode = flowNodes.value.find(n => n.type === 'page' && n.data?.pageId === pageId);
+    if (pageNode) {
+      debugLog('Creating new page for pageId:', pageId);
+      addPage({
+        id: pageId,
+        name: pageNode.data.name || pageNode.data.label || 'Untitled Page',
+        description: pageNode.data.description,
+        parentPageId: currentPageId.value,
+        color: pageNode.data.color || '#3b82f6'
+      });
+    } else {
+      debugLog('No page node found for pageId:', pageId);
+      return;
+    }
+  }
+  
+  handleNavigateToPage(pageId);
 };
 
 const deleteSelectedNode = () => {
@@ -1159,6 +1256,13 @@ onMounted(() => {
   // Add keyboard event listener for follow mode navigation
   document.addEventListener('keydown', handleKeyDown);
   
+  // Add listener for page enter events
+  document.addEventListener('enter-page', (event: any) => {
+    if (event.detail?.pageId) {
+      handleEnterPage(event.detail.pageId);
+    }
+  });
+  
   // Enable snap to grid
   snapToGrid.value = true;
 });
@@ -1166,6 +1270,13 @@ onMounted(() => {
 onUnmounted(() => {
   // Clean up keyboard event listener
   document.removeEventListener('keydown', handleKeyDown);
+  
+  // Clean up page enter event listener
+  document.removeEventListener('enter-page', (event: any) => {
+    if (event.detail?.pageId) {
+      handleEnterPage(event.detail.pageId);
+    }
+  });
 });
 
 // Watchers
@@ -1215,6 +1326,13 @@ watch(() => props.item, (newItem) => {
         markerEnd: edge.markerEnd || { type: 'arrowclosed' },
         data: { label: edge.data?.label || '', ...edge.data }, // Ensure data structure with label
       }));
+      
+      // Load pages data
+      pages.value = flowData.pages || [];
+      currentPageId.value = flowData.currentPageId || 'root';
+      
+      // Update page counts after loading
+      updatePageCounts();
 
       if (validatedNodes && validatedNodes.length > 0) {
         nextTick(() => {
@@ -1224,6 +1342,8 @@ watch(() => props.item, (newItem) => {
     } catch {
       flowNodes.value = [];
       flowEdges.value = [];
+      pages.value = [];
+      currentPageId.value = 'root';
     }
   }
 }, { immediate: true });
@@ -1352,6 +1472,15 @@ watch([selectedNodes, isMultiSelecting], () => {
           </div>
         </div>
 
+        <!-- Page Navigation -->
+        <PageNavigation
+          v-if="currentPageId !== 'root' || pageBreadcrumbs.length > 1"
+          :breadcrumbs="pageBreadcrumbs"
+          :current-page-id="currentPageId"
+          :is-edit-mode="isEditMode"
+          @navigate-to-page="handleNavigateToPage"
+        />
+
         <!-- Node Description Dialog -->
         <Transition name="description-fade">
           <div 
@@ -1376,15 +1505,16 @@ watch([selectedNodes, isMultiSelecting], () => {
         </Transition>
 
         <VueFlow
-          v-model:nodes="flowNodes"
-          v-model:edges="flowEdges"
+          v-model:nodes="visibleNodes"
+          v-model:edges="visibleEdges"
           :node-types="{
             start: StartNode,
             end: EndNode,
             terminal: TerminalNode,
             process: ProcessNode,
             decision: DecisionNode,
-            offpage: OffPageNode
+            offpage: OffPageNode,
+            page: PageNode
           }"
           :edge-types="{
             step: LabeledEdge

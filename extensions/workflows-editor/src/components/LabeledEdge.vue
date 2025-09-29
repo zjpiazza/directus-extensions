@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { BaseEdge, EdgeLabelRenderer, getBezierPath, type EdgeProps } from '@vue-flow/core';
+import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from '@vue-flow/core';
 import { computed } from 'vue';
 
 const props = defineProps<EdgeProps>();
 
-const path = computed(() => getBezierPath(props));
+const path = computed(() => getSmoothStepPath({ ...props, borderRadius: 8 }));
 
 // Get label from edge data, default to empty string
 const label = computed(() => props.data?.label || '');

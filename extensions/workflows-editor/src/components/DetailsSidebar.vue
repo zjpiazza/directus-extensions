@@ -32,6 +32,7 @@ const emit = defineEmits<{
   'update-node-data': [];
   'update-edge-data': [];
   'update-form-collection': [collectionName: string];
+  'update-form-collections': [collections: Array<{ collection: string; label?: string }>];
   'update-off-page-target': [workflowId: string];
   'delete-selected-node': [];
   'delete-selected-edge': [];
@@ -47,8 +48,32 @@ const updateEdgeData = () => {
   emit('update-edge-data');
 };
 
-const updateFormCollection = (collectionName: string) => {
-  emit('update-form-collection', collectionName);
+const updateFormCollections = (collections: Array<{ collection: string; label?: string }>) => {
+  emit('update-form-collections', collections);
+};
+
+const addCollectionLink = () => {
+  if (props.selectedNode && props.selectedNode.type === 'process' && props.selectedNode.data.subtype === 'form') {
+    if (!props.selectedNode.data.targetCollections) {
+      props.selectedNode.data.targetCollections = [];
+    }
+    props.selectedNode.data.targetCollections.push({ collection: '', label: '' });
+    updateNodeData();
+  }
+};
+
+const removeCollectionLink = (index: number) => {
+  if (props.selectedNode && props.selectedNode.data.targetCollections) {
+    props.selectedNode.data.targetCollections.splice(index, 1);
+    updateNodeData();
+  }
+};
+
+const updateCollectionLink = (index: number, field: 'collection' | 'label', value: string) => {
+  if (props.selectedNode && props.selectedNode.data.targetCollections) {
+    props.selectedNode.data.targetCollections[index][field] = value;
+    updateNodeData();
+  }
 };
 
 const updateOffPageTarget = (workflowId: string) => {
@@ -203,27 +228,98 @@ const handleToggle = () => {
           v-if="selectedNode.type === 'process' && selectedNode.data.subtype === 'form'"
           class="property-group"
         >
-          <label>Target Collection</label>
-          <select
-            :value="selectedNode.data.targetCollection"
-            :disabled="isViewMode"
-            class="select-field"
-            @change="isEditMode ? updateFormCollection(($event.target as HTMLSelectElement).value) : undefined"
-          >
-            <option value="">Select collection for form...</option>
-            <option
-              v-for="collection in availableCollections"
-              :key="collection.value"
-              :value="collection.value"
+          <label>Target Collections</label>
+          
+          <!-- Legacy single collection (show only if no multiple collections) -->
+          <div v-if="!selectedNode.data.targetCollections || selectedNode.data.targetCollections.length === 0">
+            <select
+              :value="selectedNode.data.targetCollection"
+              :disabled="isViewMode"
+              class="select-field"
+              @change="isEditMode ? updateFormCollection(($event.target as HTMLSelectElement).value) : undefined"
             >
-              {{ collection.text }}
-            </option>
-          </select>
+              <option value="">Select collection for form...</option>
+              <option
+                v-for="collection in availableCollections"
+                :key="collection.value"
+                :value="collection.value"
+              >
+                {{ collection.text }}
+              </option>
+            </select>
+            <button
+              v-if="isEditMode"
+              class="btn btn-secondary btn-sm"
+              @click="addCollectionLink"
+              style="margin-top: 0.5rem;"
+            >
+              <v-icon name="add" />
+              Add Multiple Collections
+            </button>
+          </div>
+
+          <!-- Multiple collections interface -->
+          <div v-else class="multiple-collections">
+            <div
+              v-for="(link, index) in selectedNode.data.targetCollections"
+              :key="index"
+              class="collection-link-item"
+            >
+              <div class="collection-link-fields">
+                <div class="field-group">
+                  <label class="field-label">Collection</label>
+                  <select
+                    :value="link.collection"
+                    :disabled="isViewMode"
+                    class="select-field"
+                    @change="isEditMode ? updateCollectionLink(index, 'collection', ($event.target as HTMLSelectElement).value) : undefined"
+                  >
+                    <option value="">Select collection...</option>
+                    <option
+                      v-for="collection in availableCollections"
+                      :key="collection.value"
+                      :value="collection.value"
+                    >
+                      {{ collection.text }}
+                    </option>
+                  </select>
+                </div>
+                <div class="field-group">
+                  <label class="field-label">Label (optional)</label>
+                  <input
+                    :value="link.label"
+                    :readonly="isViewMode"
+                    class="input-field"
+                    placeholder="Custom label..."
+                    @input="isEditMode ? updateCollectionLink(index, 'label', ($event.target as HTMLInputElement).value) : undefined"
+                  />
+                </div>
+              </div>
+              <button
+                v-if="isEditMode"
+                class="btn btn-danger btn-sm remove-btn"
+                @click="removeCollectionLink(index)"
+                title="Remove this collection link"
+              >
+                <v-icon name="close" />
+              </button>
+            </div>
+            
+            <div v-if="isEditMode" class="collection-actions">
+              <button
+                class="btn btn-secondary btn-sm"
+                @click="addCollectionLink"
+              >
+                <v-icon name="add" />
+                Add Collection
+              </button>
+            </div>
+          </div>
         </div>
 
-        <!-- Form Node Custom Label (only for form nodes) -->
+        <!-- Form Node Custom Label (only for form nodes without multiple collections) -->
         <div
-          v-if="selectedNode.type === 'process' && selectedNode.data.subtype === 'form'"
+          v-if="selectedNode.type === 'process' && selectedNode.data.subtype === 'form' && (!selectedNode.data.targetCollections || selectedNode.data.targetCollections.length === 0)"
           class="property-group"
         >
           <label>Form Label (optional)</label>
@@ -634,5 +730,57 @@ const handleToggle = () => {
 .icon {
   font-size: 1rem;
   line-height: 1;
+}
+
+.multiple-collections {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.collection-link-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  background: var(--theme--background-subdued, #f8f9fa);
+  border: 1px solid var(--theme--border-color-subdued, #e1e5e9);
+  border-radius: 6px;
+}
+
+.collection-link-fields {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--theme--foreground-subdued, #6c757d);
+  margin: 0;
+}
+
+.remove-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem; /* Align with first field */
+}
+
+.collection-actions {
+  display: flex;
+  justify-content: flex-start;
 }
 </style>

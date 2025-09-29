@@ -8,23 +8,43 @@ interface Data {
   description?: string;
   subtype?: 'task' | 'form';
   targetCollection?: string;
+  targetCollections?: Array<{ collection: string; label?: string }>;
   formLabel?: string;
   openCollection?: (collectionName: string) => void;
 }
 
 const props = defineProps<NodeProps<Data>>();
 
-const handleOpenCollection = () => {
-  if (props.data.subtype === 'form' && props.data.targetCollection && props.data.openCollection) {
-    props.data.openCollection(props.data.targetCollection);
+const handleOpenCollection = (collectionName: string) => {
+  if (props.data.subtype === 'form' && collectionName && props.data.openCollection) {
+    props.data.openCollection(collectionName);
   }
 };
+
+const hasCollectionLinks = computed(() => {
+  if (props.data.subtype !== 'form') return false;
+  return (props.data.targetCollections && props.data.targetCollections.length > 0) || 
+         props.data.targetCollection;
+});
 
 const nodeIcon = computed(() => (props.data.subtype === 'form' ? 'description' : 'task'));
 const nodeColor = computed(() => (props.data.subtype === 'form' ? '#7c3aed' : '#2563eb'));
 
 const displayLabel = computed(() => {
-  if (props.data.subtype === 'form' && props.data.formLabel) return props.data.formLabel;
+  // For form nodes with multiple collections, create a compound label
+  if (props.data.subtype === 'form' && props.data.targetCollections && props.data.targetCollections.length > 0) {
+    const labels = props.data.targetCollections
+      .filter(link => link.collection)
+      .map(link => link.label || link.collection)
+      .join(' / ');
+    return labels || props.data.label;
+  }
+  
+  // For form nodes with single collection, use formLabel or default
+  if (props.data.subtype === 'form' && props.data.formLabel) {
+    return props.data.formLabel;
+  }
+  
   return props.data.label;
 });
 </script>
@@ -36,14 +56,33 @@ const displayLabel = computed(() => {
     <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor }">
       <v-icon class="node-icon" :name="nodeIcon" />
       <span class="node-label">{{ displayLabel }}</span>
-      <button
-        v-if="props.data.subtype === 'form' && props.data.targetCollection"
-        class="open-collection-btn"
-        @click="handleOpenCollection"
-        title="Open collection"
-      >
-        <v-icon name="open_in_new" />
-      </button>
+      
+      <!-- Multiple collection links for form nodes -->
+      <div v-if="props.data.subtype === 'form' && hasCollectionLinks" class="collection-links">
+        <!-- Legacy single collection support -->
+        <button
+          v-if="props.data.targetCollection && !props.data.targetCollections?.length"
+          class="collection-link-btn"
+          @click="handleOpenCollection(props.data.targetCollection)"
+          :title="`Open ${props.data.targetCollection}`"
+        >
+          <v-icon name="open_in_new" class="link-icon" />
+        </button>
+        
+        <!-- Multiple collections -->
+        <div v-if="props.data.targetCollections?.length" class="multiple-links">
+          <button
+            v-for="(link, index) in props.data.targetCollections"
+            :key="`${link.collection}-${index}`"
+            class="collection-link-btn"
+            @click="handleOpenCollection(link.collection)"
+            :title="`Open ${link.label || link.collection}`"
+          >
+            <v-icon name="open_in_new" class="link-icon" />
+            <span v-if="props.data.targetCollections.length > 1" class="link-index">{{ index + 1 }}</span>
+          </button>
+        </div>
+      </div>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />
@@ -62,7 +101,7 @@ const displayLabel = computed(() => {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 8px 12px;
   background: #eff6ff;
   border: 2px solid;
   border-radius: 0;
@@ -79,6 +118,12 @@ const displayLabel = computed(() => {
   color: #ffffff;
 }
 
+.form-link {
+  color: #ffffff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .node-label {
   font-size: 14px;
   font-weight: 500;
@@ -92,6 +137,55 @@ const displayLabel = computed(() => {
   text-shadow: 0 1px 1px rgba(0,0,0,0.25);
   line-height: 1.3;
   min-width: 0; /* Allow text to shrink */
+}
+
+.collection-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.multiple-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.collection-link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  font-size: 12px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 20px;
+  height: 16px;
+}
+
+.collection-link-btn:hover { 
+  opacity: 1; 
+  background: rgba(0,0,0,0.1); 
+}
+
+.link-icon {
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.link-index {
+  color: #ffffff;
+  font-size: 8px;
+  font-weight: bold;
+  line-height: 1;
+  min-width: 8px;
+  text-align: center;
 }
 
 .open-collection-btn {

@@ -208,7 +208,7 @@ const nodeTypes = [
 ];
 
 // Vue Flow composable
-const { project, fitView, updateEdge, addEdges } = useVueFlow();
+const { project, fitView, updateEdge, addEdges, snapToGrid } = useVueFlow();
 
 // Computed properties
 const title = computed(() => {
@@ -671,6 +671,23 @@ const updateFormCollection = (collectionName: string) => {
   }
 };
 
+const updateFormCollections = (collections: Array<{ collection: string; label?: string }>) => {
+  if (selectedNode.value && selectedNode.value.type === 'process' && selectedNode.value.data.subtype === 'form') {
+    selectedNode.value.data.targetCollections = collections;
+    // Clear legacy single collection when using multiple
+    if (collections.length > 0) {
+      delete selectedNode.value.data.targetCollection;
+    }
+    updateNodeData();
+    
+    // Update the field to persist the changes
+    updateField('data', {
+      nodes: flowNodes.value,
+      edges: flowEdges.value,
+    });
+  }
+};
+
 const updateOffPageTarget = (workflowId: string) => {
   if (selectedNode.value && selectedNode.value.type === 'offpage') {
     if (!workflowId) {
@@ -956,7 +973,7 @@ const onConnect = (connection: Connection) => {
     target: connection.target!,
     sourceHandle: connection.sourceHandle,
     targetHandle: connection.targetHandle,
-    type: 'step',
+    type: 'step', // Uses our custom LabeledEdge which now renders as smoothstep
     animated: true,
     style: { strokeWidth: 2 },
     markerEnd: { type: 'arrowclosed' },
@@ -1087,6 +1104,9 @@ onMounted(() => {
   
   // Add keyboard event listener for follow mode navigation
   document.addEventListener('keydown', handleKeyDown);
+  
+  // Enable snap to grid
+  snapToGrid.value = true;
 });
 
 onUnmounted(() => {
@@ -1321,7 +1341,7 @@ watch([selectedNodes, isMultiSelecting], () => {
           :nodes-connectable="isEditMode"
           :connection-mode="ConnectionMode.Loose"
           :connection-line-style="{ strokeWidth: 2, stroke: '#0066cc' }"
-          :connection-line-type="'bezier'"
+          :connection-line-type="'smoothstep'"
           :elements-selectable="isEditMode"
           :default-viewport="{ x: 0, y: 0, zoom: 1 }"
           :min-zoom="0.1"
@@ -1333,6 +1353,8 @@ watch([selectedNodes, isMultiSelecting], () => {
           :pan-on-drag="[1, 2]"
           :multi-selection-key-code="true"
           :zoom-on-double-click="false"
+          :snap-to-grid="true"
+          :snap-grid="[20, 20]"
           @node-click="onNodeClick"
           @edge-click="onEdgeClick"
           @pane-click="onPaneClick"
@@ -1373,6 +1395,7 @@ watch([selectedNodes, isMultiSelecting], () => {
         @update-node-data="updateNodeData"
         @update-edge-data="updateEdgeData"
         @update-form-collection="updateFormCollection"
+        @update-form-collections="updateFormCollections"
         @update-off-page-target="updateOffPageTarget"
         @delete-selected-node="deleteSelectedNode"
         @delete-selected-edge="deleteSelectedEdge"

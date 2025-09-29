@@ -16,9 +16,8 @@
 		"type": "bundle",
 		"path": {
 			"app": "dist/app.js",
-			"api": "dist/index.js"
+			"api": "dist/api.js"
 		},
-		"host": "^10.10.0",
 		"entries": [
 			{
 				"type": "hook",
@@ -30,7 +29,8 @@
 				"name": "tenant-reconciliation",
 				"source": "src/endpoint/index.ts"
 			}
-		]
+		],
+		"host": "^10.10.0"
 	},
 	"scripts": {
 		"build": "directus-extension build",

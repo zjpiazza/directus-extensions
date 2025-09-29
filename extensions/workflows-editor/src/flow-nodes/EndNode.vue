@@ -10,8 +10,13 @@ const props = defineProps<NodeProps<Data>>();
   <div class="end-node">
     <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
-    <div class="terminal-shape">
-      <span class="node-label">{{ props.data.label }}</span>
+    <div class="glass-terminal">
+      <!-- Background gradient -->
+      <div class="terminal-background"></div>
+      <!-- Content overlay -->
+      <div class="terminal-overlay">
+        <span class="node-label">{{ props.data.label }}</span>
+      </div>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />
@@ -26,30 +31,53 @@ const props = defineProps<NodeProps<Data>>();
   justify-content: center;
 }
 
-.terminal-shape {
+.glass-terminal {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #dc2626;
-  border: 2px solid #dc2626;
   border-radius: 50%;
   width: 100px;
   height: 100px;
-  text-align: center;
-  box-sizing: border-box;
-  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: all 0.3s ease;
+}
+
+.glass-terminal:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+.terminal-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #dc2626dd, #dc2626aa);
+  opacity: 0.9;
+}
+
+.terminal-overlay {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #ffffff;
 }
 
 .node-label { 
   font-size: 11px; 
-  font-weight: 500; 
+  font-weight: 600; 
   color: #ffffff; 
-  text-shadow: 0 1px 1px rgba(0,0,0,0.3); 
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3); 
   line-height: 1.1;
   text-align: center;
   max-width: 70px;
   padding: 0 5px;
 }
-
-.terminal-shape:hover { transform: translateY(-2px); background: #b91c1c; border-color: #b91c1c; }
 </style>

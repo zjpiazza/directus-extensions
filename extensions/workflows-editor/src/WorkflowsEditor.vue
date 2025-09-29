@@ -11,6 +11,7 @@ import CustomHeader from './components/CustomHeader.vue';
 import NodePalette from './components/NodePalette.vue';
 import DetailsSidebar from './components/DetailsSidebar.vue';
 import WorkflowLegend from './components/WorkflowLegend.vue';
+import ThemeSelector from './components/ThemeSelector.vue';
 
 // Import your custom node components
 import TerminalNode from './flow-nodes/TerminalNode.vue';
@@ -1278,6 +1279,11 @@ watch([selectedNodes, isMultiSelecting], () => {
       @toggle-descriptions="toggleDescriptions"
     />
 
+    <!-- Theme Selector (floating) -->
+    <div class="theme-selector-wrapper">
+      <ThemeSelector />
+    </div>
+
     <!-- Main Editor Layout -->
     <div class="editor-layout" :class="{ 'show-node-palette': showNodePalette, 'show-details-sidebar': showDetailsSidebar }">
       <!-- Node Palette -->
@@ -1919,6 +1925,22 @@ watch([selectedNodes, isMultiSelecting], () => {
   
   .description-content p {
     font-size: 0.8125rem;
+  }
+}
+
+/* Theme Selector Positioning */
+.theme-selector-wrapper {
+  position: absolute;
+  top: 80px;
+  right: 20px;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+@media (max-width: 768px) {
+  .theme-selector-wrapper {
+    top: 60px;
+    right: 10px;
   }
 }
 </style>

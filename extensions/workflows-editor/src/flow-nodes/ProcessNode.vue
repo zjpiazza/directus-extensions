@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 import type { NodeProps } from '@vue-flow/core';
+import { useWorkflowTheme } from '../composables/useWorkflowTheme';
 
 interface Data {
   label: string;
@@ -16,6 +17,10 @@ interface Data {
 
 const props = defineProps<NodeProps<Data>>();
 
+// Theme system
+const { getNodeStyle, getHoverTransform } = useWorkflowTheme();
+const isHovered = ref(false);
+
 const handleOpenCollection = (collectionName: string) => {
   if (props.data.subtype === 'form' && collectionName && props.data.openCollection) {
     props.data.openCollection(collectionName);
@@ -29,10 +34,8 @@ const hasCollectionLinks = computed(() => {
 });
 
 const nodeIcon = computed(() => (props.data.subtype === 'form' ? 'description' : 'task'));
-const nodeColor = computed(() => (props.data.subtype === 'form' ? '#7c3aed' : '#2563eb'));
 
 const displayLabel = computed(() => {
-  // For form nodes with multiple collections, create a compound label
   if (props.data.subtype === 'form' && props.data.targetCollections && props.data.targetCollections.length > 0) {
     const labels = props.data.targetCollections
       .filter(link => link.collection)
@@ -41,7 +44,6 @@ const displayLabel = computed(() => {
     return labels || props.data.label;
   }
   
-  // For form nodes with single collection, use formLabel or default
   if (props.data.subtype === 'form' && props.data.formLabel) {
     return props.data.formLabel;
   }
@@ -49,168 +51,335 @@ const displayLabel = computed(() => {
   return props.data.label;
 });
 
+// Dynamic themed styles
+const themedNodeStyle = computed(() => {
+  return getNodeStyle({
+    nodeType: 'process',
+    subtype: props.data.subtype || 'task',
+    isHovered: isHovered.value
+  });
+});
+
 const nodeStyle = computed(() => {
   const size = props.data.nodeSize || 'medium';
-  const sizes = {
-    small: { width: '120px', minHeight: '60px' },
-    medium: { width: '160px', minHeight: '56px' },
-    large: { width: '240px', minHeight: '100px' }
-  };
-  return sizes[size];
+  const isFormWithActions = props.data.subtype === 'form' && hasCollectionLinks.value;
+  
+  if (isFormWithActions) {
+    // Taller for form nodes with actions to accommodate multiple rows
+    const actionCount = props.data.targetCollections?.length || 1;
+    const displayedActions = Math.min(actionCount, 3);
+    const baseHeight = 80; // Header height
+    const actionHeight = 44; // Height per action row
+    const calculatedHeight = baseHeight + (displayedActions * actionHeight);
+    
+    const sizes = {
+      small: { width: '180px', minHeight: `${calculatedHeight}px` },
+      medium: { width: '220px', minHeight: `${calculatedHeight}px` },
+      large: { width: '300px', minHeight: `${calculatedHeight}px` }
+    };
+    return sizes[size];
+  } else {
+    // Original sizes for non-action nodes
+    const sizes = {
+      small: { width: '160px', minHeight: '100px' },
+      medium: { width: '200px', minHeight: '120px' },
+      large: { width: '280px', minHeight: '160px' }
+    };
+    return sizes[size];
+  }
 });
 </script>
 
 <template>
-  <div class="process-node">
+  <div class="process-node-v3">
     <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
-     <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor, ...nodeStyle }">
-      <v-icon class="node-icon" :name="nodeIcon" />
-      <span class="node-label">{{ displayLabel }}</span>
+    
+    <!-- Dynamic themed card -->
+    <div 
+      class="glass-card" 
+      :style="{ ...nodeStyle, ...themedNodeStyle }"
+      @mouseenter="isHovered = true"
+      @mouseleave="isHovered = false"
+    >
       
-      <!-- Multiple collection links for form nodes -->
-      <div v-if="props.data.subtype === 'form' && hasCollectionLinks" class="collection-links">
-        <!-- Legacy single collection support -->
-        <button
-          v-if="props.data.targetCollection && !props.data.targetCollections?.length"
-          class="collection-link-btn"
-          @click="handleOpenCollection(props.data.targetCollection)"
-          :title="`Open ${props.data.targetCollection}`"
-        >
-          <v-icon name="open_in_new" class="link-icon" />
-        </button>
-        
-        <!-- Multiple collections -->
-        <div v-if="props.data.targetCollections?.length" class="multiple-links">
+      <!-- Content overlay -->
+      <div class="card-overlay">
+         <!-- Form node with full-width action buttons -->
+         <div v-if="props.data.subtype === 'form' && hasCollectionLinks" class="form-actions">
+           <!-- Header with icon and title on same line -->
+           <div class="form-header">
+             <div class="icon-badge">
+               <v-icon class="badge-icon" :name="nodeIcon" />
+             </div>
+             <h3 class="form-title">{{ props.data.formLabel || props.data.label }}</h3>
+           </div>
+          
+          <!-- Single collection -->
           <button
-            v-for="(link, index) in props.data.targetCollections"
+            v-if="props.data.targetCollection && !props.data.targetCollections?.length"
+            class="action-row"
+            @click="handleOpenCollection(props.data.targetCollection)"
+            :title="`Open ${props.data.targetCollection}`"
+          >
+            <span class="action-label">{{ props.data.targetCollection }}</span>
+            <v-icon name="launch" class="action-icon" />
+          </button>
+          
+          <!-- Multiple collections - each as separate row -->
+          <button
+            v-for="(link, index) in props.data.targetCollections?.slice(0, 3) || []"
             :key="`${link.collection}-${index}`"
-            class="collection-link-btn"
+            class="action-row"
             @click="handleOpenCollection(link.collection)"
             :title="`Open ${link.label || link.collection}`"
           >
-            <v-icon name="open_in_new" class="link-icon" />
-            <span v-if="props.data.targetCollections.length > 1" class="link-index">{{ index + 1 }}</span>
+            <span class="action-label">{{ link.label || link.collection }}</span>
+            <v-icon name="launch" class="action-icon" />
           </button>
+          
+          <!-- Show "more" indicator if there are additional collections -->
+          <div v-if="props.data.targetCollections && props.data.targetCollections.length > 3" class="more-actions">
+            +{{ props.data.targetCollections.length - 3 }} more collections
+          </div>
         </div>
+        
+         <!-- Regular node without actions or non-form nodes -->
+         <div v-else class="regular-content">
+           <!-- Header with icon and title on same line -->
+           <div class="regular-header">
+             <div class="icon-badge">
+               <v-icon class="badge-icon" :name="nodeIcon" />
+             </div>
+             <div class="title-section">
+               <h3 class="node-title">{{ displayLabel }}</h3>
+               <div v-if="props.data.subtype === 'form'" class="node-subtitle">
+                 Interactive Form
+               </div>
+             </div>
+           </div>
+         </div>
       </div>
     </div>
+    
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />
   </div>
 </template>
 
 <style scoped>
-.process-node {
+.process-node-v3 {
   position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.process-shape {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #eff6ff;
-  border: 2px solid;
-  border-radius: 0;
-  /* Dynamic width and height are now set via :style binding */
+.glass-card {
   position: relative;
-  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+  border-radius: 16px;
+  overflow: hidden;
+  /* Theme-specific styles (backdrop-filter, border, transition) are applied via themedNodeStyle */
 }
 
-.node-icon { 
-  font-size: 16px; 
-  flex-shrink: 0; 
-  margin-top: 2px; /* Align icon with first line of text */
-  color: #ffffff;
+.card-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0.9;
 }
 
-.form-link {
-  color: #ffffff;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.node-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #ffffff;
-  white-space: normal;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word;
-  flex: 1;
-  text-align: center;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.25);
-  line-height: 1.3;
-  min-width: 0; /* Allow text to shrink */
-}
-
-.collection-links {
+.card-overlay {
+  position: relative;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 12px;
+  height: 100%;
+  /* Text color is inherited from theme system */
+}
+
+.icon-badge {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 6px;
+  border: 1px solid rgba(255,255,255,0.3);
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
-.multiple-links {
+.badge-icon {
+  font-size: 18px;
+  color: inherit;
+}
+
+.form-actions {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  height: 100%;
+  width: 100%;
 }
 
-.collection-link-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  border-radius: 2px;
-  font-size: 12px;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
+.form-header {
   display: flex;
   align-items: center;
-  gap: 2px;
-  min-width: 20px;
-  height: 16px;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+  margin-bottom: 8px;
+  gap: 12px;
 }
 
-.collection-link-btn:hover { 
-  opacity: 1; 
-  background: rgba(0,0,0,0.1); 
+.form-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  word-wrap: break-word;
+  text-align: left;
+  color: inherit;
+  flex: 1;
 }
 
-.link-icon {
-  color: #ffffff;
-  font-size: 12px;
-}
-
-.link-index {
-  color: #ffffff;
-  font-size: 8px;
-  font-weight: bold;
-  line-height: 1;
-  min-width: 8px;
-  text-align: center;
-}
-
-.open-collection-btn {
-  background: none;
-  border: none;
+.action-row {
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 6px;
+  color: inherit;
   cursor: pointer;
-  padding: 2px;
-  border-radius: 2px;
-  font-size: 12px;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-  flex-shrink: 0;
-  margin-top: 2px; /* Align with first line of text */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: all 0.2s ease;
+  width: 100%;
+  min-height: 40px;
 }
-.open-collection-btn:hover { opacity: 1; background: rgba(0,0,0,0.1); }
 
-.process-shape:hover { transform: translateY(-2px); filter: brightness(0.9); }
+.action-row:hover {
+  background: rgba(255,255,255,0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.action-row:active {
+  transform: translateY(0);
+}
+
+.action-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  word-wrap: break-word;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.action-icon {
+  font-size: 16px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.more-actions {
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.regular-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+}
+
+.regular-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.title-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.node-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  word-wrap: break-word;
+  text-align: left;
+}
+
+.node-subtitle {
+  font-size: 12px;
+  opacity: 0.8;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: left;
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+  gap: 4px;
+  max-width: 140px;
+  margin: 0 auto;
+}
+
+.collection-chip {
+  width: 32px;
+  height: 24px;
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collection-chip:hover {
+  background: rgba(255,255,255,0.3);
+  transform: scale(1.05);
+}
+
+.more-indicator {
+  width: 32px;
+  height: 24px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
 </style>

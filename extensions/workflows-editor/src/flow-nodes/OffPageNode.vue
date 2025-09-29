@@ -41,7 +41,7 @@ const handlePentagonClick = () => {
     <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
     <div 
-      class="pentagon-shape"
+      class="glass-pentagon"
       :class="{ 
         'clickable': !isEditMode.value && props.data.targetWorkflowId,
         'view-mode': !isEditMode.value
@@ -49,7 +49,12 @@ const handlePentagonClick = () => {
       @click="handlePentagonClick"
       :title="!isEditMode.value && props.data.targetWorkflowId ? 'Click to navigate to workflow' : ''"
     >
-      <span class="node-letter">{{ getWorkflowLetter }}</span>
+      <!-- Background gradient -->
+      <div class="pentagon-background" :class="{ 'view-mode': !isEditMode.value }"></div>
+      <!-- Content overlay -->
+      <div class="pentagon-overlay">
+        <span class="node-letter">{{ getWorkflowLetter }}</span>
+      </div>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
     <Handle id="bottom" type="source" :position="Position.Bottom" :is-connectable="true" />
@@ -57,49 +62,67 @@ const handlePentagonClick = () => {
 </template>
 
 <style scoped>
-.offpage-node { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.offpage-node { 
+  position: relative; 
+  display: inline-flex; 
+  align-items: center; 
+  justify-content: center; 
+}
 
-.pentagon-shape {
+.glass-pentagon {
   position: relative;
   width: 40px;
   height: 32px;
-  background: #475569;
-  border: 2px solid #475569;
   clip-path: polygon(0% 0%, 100% 0%, 100% 75%, 50% 100%, 0% 75%);
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
   padding: 8px;
-  transition: background .2s ease, border-color .2s ease, transform .15s ease;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: all 0.3s ease;
 }
 
-.pentagon-shape.clickable {
+.glass-pentagon.clickable {
   cursor: pointer;
 }
 
-.pentagon-shape.clickable:hover {
-  transform: translateY(-2px);
-  background: #334155;
-  border-color: #334155;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+.glass-pentagon:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
 }
 
-.pentagon-shape.view-mode {
-  background: #0066cc;
-  border-color: #0066cc;
+.pentagon-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, #475569dd, #475569aa);
+  opacity: 0.9;
 }
 
-.pentagon-shape.view-mode.clickable:hover {
-  background: #0052a3;
-  border-color: #0052a3;
+.pentagon-background.view-mode {
+  background: linear-gradient(135deg, #0066ccdd, #0066ccaa);
+}
+
+.pentagon-overlay {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #ffffff;
 }
 
 .node-letter {
   font-size: 20px;
   font-weight: 700;
   color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3);
   letter-spacing: 0;
   line-height: 1;
 }

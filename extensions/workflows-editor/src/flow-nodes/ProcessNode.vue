@@ -11,6 +11,7 @@ interface Data {
   targetCollections?: Array<{ collection: string; label?: string }>;
   formLabel?: string;
   openCollection?: (collectionName: string) => void;
+  nodeSize?: 'small' | 'medium' | 'large';
 }
 
 const props = defineProps<NodeProps<Data>>();
@@ -47,13 +48,23 @@ const displayLabel = computed(() => {
   
   return props.data.label;
 });
+
+const nodeStyle = computed(() => {
+  const size = props.data.nodeSize || 'medium';
+  const sizes = {
+    small: { width: '120px', minHeight: '60px' },
+    medium: { width: '160px', minHeight: '56px' },
+    large: { width: '240px', minHeight: '100px' }
+  };
+  return sizes[size];
+});
 </script>
 
 <template>
   <div class="process-node">
     <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
-    <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor }">
+     <div class="process-shape" :style="{ borderColor: nodeColor, background: nodeColor, ...nodeStyle }">
       <v-icon class="node-icon" :name="nodeIcon" />
       <span class="node-label">{{ displayLabel }}</span>
       
@@ -105,8 +116,7 @@ const displayLabel = computed(() => {
   background: #eff6ff;
   border: 2px solid;
   border-radius: 0;
-  width: 160px;
-  min-height: 56px;
+  /* Dynamic width and height are now set via :style binding */
   position: relative;
   transition: background .2s ease, border-color .2s ease, transform .15s ease;
 }

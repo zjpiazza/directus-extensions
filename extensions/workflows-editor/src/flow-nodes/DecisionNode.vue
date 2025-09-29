@@ -2,15 +2,31 @@
 import { Handle, Position } from '@vue-flow/core';
 import type { NodeProps } from '@vue-flow/core';
 
-interface Data { label: string; description?: string; }
+interface Data { 
+  label: string; 
+  description?: string; 
+  nodeSize?: 'small' | 'medium' | 'large';
+}
 const props = defineProps<NodeProps<Data>>();
+
+import { computed } from 'vue';
+
+const nodeStyle = computed(() => {
+  const size = props.data.nodeSize || 'medium';
+  const sizes = {
+    small: { width: '100px', height: '100px' },
+    medium: { width: '136px', height: '136px' },
+    large: { width: '180px', height: '180px' }
+  };
+  return sizes[size];
+});
 </script>
 
 <template>
   <div class="decision-node">
     <Handle id="top" type="source" :position="Position.Top" :is-connectable="true" />
     <Handle id="left" type="source" :position="Position.Left" :is-connectable="true" />
-    <div class="diamond-shape">
+     <div class="diamond-shape" :style="nodeStyle">
       <span class="node-label">{{ props.data.label }}</span>
     </div>
     <Handle id="right" type="source" :position="Position.Right" :is-connectable="true" />
@@ -22,8 +38,7 @@ const props = defineProps<NodeProps<Data>>();
 .decision-node { position: relative; display: inline-flex; align-items: center; justify-content: center; }
 
 .diamond-shape {
-  width: 136px;
-  height: 136px;
+  /* Dynamic width and height are now set via :style binding */
   background: #d97706;
   border: 2px solid #d97706;
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);

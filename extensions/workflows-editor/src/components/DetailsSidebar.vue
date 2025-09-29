@@ -92,6 +92,10 @@ const deleteSelectedEdge = () => {
 const isEditingDescription = ref(false);
 const localDescription = ref('');
 
+// Local state for default node size editing
+const isEditingDefaultNodeSize = ref(false);
+const localDefaultNodeSize = ref('medium');
+
 const startEditingDescription = () => {
   // Initialize local description with current value from edits or item
   localDescription.value = props.edits.description || props.item?.description || '';
@@ -118,6 +122,36 @@ const navigateToWorkflow = (workflowId: string) => {
 
 const handleToggle = () => {
   emit('toggle');
+};
+
+// Default node size editing methods
+const startEditingDefaultNodeSize = () => {
+  // Initialize local default node size with current value from edits or item
+  localDefaultNodeSize.value = props.edits.defaultNodeSize || props.item?.defaultNodeSize || 'medium';
+  isEditingDefaultNodeSize.value = true;
+};
+
+const stopEditingDefaultNodeSize = () => {
+  // Save the local default node size back to edits
+  if (!props.edits.defaultNodeSize) {
+    props.edits.defaultNodeSize = localDefaultNodeSize.value;
+  }
+  isEditingDefaultNodeSize.value = false;
+};
+
+const updateDefaultNodeSize = (value: string) => {
+  localDefaultNodeSize.value = value;
+  // Update edits in real-time
+  props.edits.defaultNodeSize = value;
+};
+
+const getSizeDescription = (size: string) => {
+  const sizeMap: Record<string, string> = {
+    small: '120×60 pixels',
+    medium: '180×80 pixels',
+    large: '240×100 pixels'
+  };
+  return sizeMap[size] || '180×80 pixels';
 };
 </script>
 
@@ -184,6 +218,53 @@ const handleToggle = () => {
               <button
                 class="btn btn-secondary btn-sm"
                 @click="stopEditingDescription"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Default Node Size Section (shown when nothing is selected) -->
+      <div v-if="!selectedNode && !selectedEdge">
+        <h3>Default Node Size</h3>
+        <div class="default-node-size-section">
+          <!-- View Mode or when not editing -->
+          <div v-if="!isEditingDefaultNodeSize" class="default-node-size-display">
+            <div class="node-size-display">
+              <span class="node-size-value">
+                {{ edits.defaultNodeSize || item?.defaultNodeSize || 'medium' }}
+              </span>
+              <span class="node-size-description">
+                ({{ getSizeDescription(edits.defaultNodeSize || item?.defaultNodeSize || 'medium') }})
+              </span>
+            </div>
+            <button
+              v-if="isEditMode"
+              class="btn btn-secondary description-edit-btn"
+              @click="startEditingDefaultNodeSize"
+            >
+              <v-icon name="edit" />
+              Change Default Size
+            </button>
+          </div>
+          
+          <!-- Edit Mode - Size selector -->
+          <div v-else class="default-node-size-edit">
+            <select
+              v-model="localDefaultNodeSize"
+              class="select-field"
+              @change="updateDefaultNodeSize($event.target.value)"
+            >
+              <option value="small">Small (120×60)</option>
+              <option value="medium">Medium (180×80)</option>
+              <option value="large">Large (240×100)</option>
+            </select>
+            <div class="description-edit-actions">
+              <button
+                class="btn btn-secondary btn-sm"
+                @click="stopEditingDefaultNodeSize"
               >
                 Done
               </button>
@@ -782,5 +863,44 @@ const handleToggle = () => {
 .collection-actions {
   display: flex;
   justify-content: flex-start;
+}
+
+.default-node-size-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.default-node-size-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.node-size-display {
+  padding: 0.75rem;
+  background: var(--theme--background-subdued, #f8f9fa);
+  border-radius: 4px;
+  border: 1px solid var(--theme--border-color-subdued, #e1e5e9);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.node-size-value {
+  font-weight: 600;
+  color: var(--theme--foreground, #1a1a1a);
+  text-transform: capitalize;
+}
+
+.node-size-description {
+  font-size: 0.8125rem;
+  color: var(--theme--foreground-subdued, #6c757d);
+}
+
+.default-node-size-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 </style>

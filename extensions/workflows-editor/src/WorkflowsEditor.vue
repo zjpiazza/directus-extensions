@@ -641,6 +641,9 @@ const onDrop = (event: DragEvent) => {
     y: event.clientY - canvasBounds.top,
   });
 
+  // Get default node size from workflow settings
+  const defaultNodeSize = props.edits.defaultNodeSize || props.item?.defaultNodeSize || 'medium';
+  
   const newNode: Node = {
     id: `${nodeType.type}-${Date.now()}`,
     type: nodeType.type,
@@ -649,6 +652,7 @@ const onDrop = (event: DragEvent) => {
       label: nodeType.label,
       name: nodeType.label,
       description: '',
+      nodeSize: defaultNodeSize,
       ...(nodeType.subtype && { subtype: nodeType.subtype }),
       ...(nodeType.subtype === 'form' && { targetCollection: '' }),
       // Provide the openCollection function to process nodes

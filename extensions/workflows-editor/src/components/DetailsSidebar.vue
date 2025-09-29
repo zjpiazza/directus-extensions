@@ -96,6 +96,10 @@ const localDescription = ref('');
 const isEditingDefaultNodeSize = ref(false);
 const localDefaultNodeSize = ref('medium');
 
+// Local state for default edge type editing
+const isEditingDefaultEdgeType = ref(false);
+const localDefaultEdgeType = ref('bezier');
+
 const startEditingDescription = () => {
   // Initialize local description with current value from edits or item
   localDescription.value = props.edits.description || props.item?.description || '';
@@ -152,6 +156,37 @@ const getSizeDescription = (size: string) => {
     large: '240×100 pixels'
   };
   return sizeMap[size] || '180×80 pixels';
+};
+
+// Default edge type editing methods
+const startEditingDefaultEdgeType = () => {
+  // Initialize local default edge type with current value from edits or item
+  localDefaultEdgeType.value = props.edits.defaultEdgeType || props.item?.defaultEdgeType || 'bezier';
+  isEditingDefaultEdgeType.value = true;
+};
+
+const stopEditingDefaultEdgeType = () => {
+  // Save the local default edge type back to edits
+  if (!props.edits.defaultEdgeType) {
+    props.edits.defaultEdgeType = localDefaultEdgeType.value;
+  }
+  isEditingDefaultEdgeType.value = false;
+};
+
+const updateDefaultEdgeType = (value: string) => {
+  localDefaultEdgeType.value = value;
+  // Update edits in real-time
+  props.edits.defaultEdgeType = value;
+};
+
+const getEdgeTypeDescription = (edgeType: string) => {
+  const edgeTypeMap: Record<string, string> = {
+    'bezier': 'Curved, smooth connections',
+    'step': 'Right-angle, step-like connections', 
+    'smoothstep': 'Rounded right-angle connections',
+    'straight': 'Direct straight line connections'
+  };
+  return edgeTypeMap[edgeType] || 'Curved, smooth connections';
 };
 </script>
 
@@ -265,6 +300,54 @@ const getSizeDescription = (size: string) => {
               <button
                 class="btn btn-secondary btn-sm"
                 @click="stopEditingDefaultNodeSize"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Default Edge Type Section (shown when nothing is selected) -->
+      <div v-if="!selectedNode && !selectedEdge">
+        <h3>Default Edge Type</h3>
+        <div class="default-edge-type-section">
+          <!-- View Mode or when not editing -->
+          <div v-if="!isEditingDefaultEdgeType" class="default-edge-type-display">
+            <div class="edge-type-display">
+              <span class="edge-type-value">
+                {{ edits.defaultEdgeType || item?.defaultEdgeType || 'bezier' }}
+              </span>
+              <span class="edge-type-description">
+                ({{ getEdgeTypeDescription(edits.defaultEdgeType || item?.defaultEdgeType || 'bezier') }})
+              </span>
+            </div>
+            <button
+              v-if="isEditMode"
+              class="btn btn-secondary description-edit-btn"
+              @click="startEditingDefaultEdgeType"
+            >
+              <v-icon name="edit" />
+              Change Default Edge Type
+            </button>
+          </div>
+          
+          <!-- Edit Mode - Edge type selector -->
+          <div v-else class="default-edge-type-edit">
+            <select
+              v-model="localDefaultEdgeType"
+              class="select-field"
+              @change="updateDefaultEdgeType($event.target.value)"
+            >
+              <option value="bezier">Bezier</option>
+              <option value="step">Step Edge</option>
+              <option value="smoothstep">Smoothstep Edge</option>
+              <option value="straight">Straight Edge</option>
+            </select>
+            <div class="description-edit-actions">
+              <button
+                class="btn btn-secondary btn-sm"
+                @click="stopEditingDefaultEdgeType"
               >
                 Done
               </button>
@@ -899,6 +982,45 @@ const getSizeDescription = (size: string) => {
 }
 
 .default-node-size-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.default-edge-type-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.default-edge-type-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.edge-type-display {
+  padding: 0.75rem;
+  background: var(--theme--background-subdued, #f8f9fa);
+  border-radius: 4px;
+  border: 1px solid var(--theme--border-color-subdued, #e1e5e9);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edge-type-value {
+  font-weight: 600;
+  color: var(--theme--foreground, #1a1a1a);
+  text-transform: capitalize;
+}
+
+.edge-type-description {
+  font-size: 0.8125rem;
+  color: var(--theme--foreground-subdued, #6c757d);
+}
+
+.default-edge-type-edit {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;

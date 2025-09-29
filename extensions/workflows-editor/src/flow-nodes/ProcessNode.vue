@@ -37,7 +37,7 @@ const displayLabel = computed(() => {
     const labels = props.data.targetCollections
       .filter(link => link.collection)
       .map(link => link.label || link.collection)
-      .join(' / ');
+      .join(' ');
     return labels || props.data.label;
   }
   

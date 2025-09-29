@@ -1017,6 +1017,9 @@ const onConnect = (connection: Connection) => {
     return;
   }
 
+  // Get default edge type from workflow settings
+  const defaultEdgeType = props.edits.defaultEdgeType || props.item?.defaultEdgeType || 'bezier';
+  
   // Create a proper edge object with all required properties
   const newEdge: Edge = {
     id: `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1024,7 +1027,7 @@ const onConnect = (connection: Connection) => {
     target: connection.target!,
     sourceHandle: connection.sourceHandle,
     targetHandle: connection.targetHandle,
-    type: 'step', // Uses our custom LabeledEdge which now renders as smoothstep
+    type: defaultEdgeType, // Use the default edge type from workflow settings
     animated: true,
     style: { strokeWidth: 2 },
     markerEnd: { type: 'arrowclosed' },

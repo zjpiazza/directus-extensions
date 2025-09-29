@@ -93,6 +93,22 @@ The current repository contains multiple Directus extensions using the "editor" 
 - Editor type extensions modify item editing interface
 - Singleton vs standard collection handling differs between extensions
 
+### Theming & Styling
+- **ALWAYS use Directus CSS variables** for consistent theming
+- Common Directus CSS variables:
+  - `--theme-primary`: Primary theme color
+  - `--theme-background`: Background color
+  - `--theme-background-accent`: Accent background color
+  - `--theme-foreground`: Foreground/text color
+  - `--theme-foreground-accent`: Accent text color
+  - `--theme-border-color`: Border color
+  - `--theme-border-color-accent`: Accent border color
+  - `--theme-success`: Success color
+  - `--theme-warning`: Warning color
+  - `--theme-danger`: Danger color
+- Extensions should adapt to both light and dark themes automatically when using these variables
+- Avoid hardcoded colors in favor of CSS variables for theme consistency
+
 ## Common Tasks
 - Building extensions: `pnpm build`
 - Starting environment: `docker compose up -d`

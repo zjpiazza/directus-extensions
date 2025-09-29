@@ -415,7 +415,7 @@ const getEdgeTypeDescription = (edgeType: string) => {
               v-if="isEditMode"
               class="btn btn-secondary btn-sm"
               @click="addCollectionLink"
-              style="margin-top: 0.5rem;"
+              style="margin-top: 1rem;"
             >
               <v-icon name="add" />
               Add Multiple Collections
@@ -514,7 +514,7 @@ const getEdgeTypeDescription = (edgeType: string) => {
               {{ workflow?.name || 'Unnamed Workflow' }}
             </option>
           </select>
-          <div class="offpage-actions" v-if="selectedNode.data.targetWorkflowId">
+           <div class="offpage-actions" v-if="selectedNode.data.targetWorkflowId" style="margin-top: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
               <button
                  class="btn btn-secondary small"
                  :disabled="isEditMode"
@@ -616,11 +616,11 @@ const getEdgeTypeDescription = (edgeType: string) => {
 .details-sidebar {
   background: var(--theme--background-subdued, #f8f9fa);
   border-left: 1px solid var(--theme--border-color, #e1e5e9);
-  padding: 0.5rem;
+  padding: 1rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
   z-index: 10;
   width: 300px;
 }
@@ -629,8 +629,10 @@ const getEdgeTypeDescription = (edgeType: string) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
-  margin-bottom: 1rem;
+  padding: 0.75rem 0;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--theme--border-color-subdued, #e1e5e9);
+  padding-bottom: 1rem;
 }
 
 .sidebar-header h2 {
@@ -642,9 +644,20 @@ const getEdgeTypeDescription = (edgeType: string) => {
 
 .sidebar-section {
   background: var(--theme--background-normal, white);
-  padding: 1rem;
-  border-radius: 4px;
+  padding: 1.5rem;
+  border-radius: 6px;
   border: 1px solid var(--theme--border-color, #e1e5e9);
+  margin-top: 1rem;
+}
+
+.sidebar-section > div:not(:last-child) {
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--theme--border-color-subdued, #f0f0f0);
+}
+
+.sidebar-section > div:last-child {
+  margin-bottom: 0;
 }
 
 .sidebar-header {
@@ -655,9 +668,12 @@ const getEdgeTypeDescription = (edgeType: string) => {
 }
 
 .sidebar-header h3 {
-  margin: 0;
+  margin: 0 0 1.25rem 0;
   color: var(--theme--foreground, #1a1a1a);
   font-size: 1rem;
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--theme--border-color-subdued, #f0f0f0);
 }
 
 .collapse-btn {
@@ -765,6 +781,7 @@ const getEdgeTypeDescription = (edgeType: string) => {
 .description-edit-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: 0.75rem;
 }
 
 .description-edit-btn {
@@ -772,8 +789,9 @@ const getEdgeTypeDescription = (edgeType: string) => {
 }
 
 .btn-sm {
-  padding: 0.375rem 0.75rem;
+  padding: 0.5rem 0.875rem;
   font-size: 0.8125rem;
+  margin-top: 0.5rem;
 }
 
 .description-placeholder {
@@ -788,26 +806,32 @@ const getEdgeTypeDescription = (edgeType: string) => {
 }
 
 .property-group {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.property-group:last-child {
+  margin-bottom: 0;
 }
 
 .property-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
   font-weight: 600;
   color: var(--theme--foreground, #1a1a1a);
+  font-size: 0.875rem;
 }
 
 .input-field,
 .textarea-field,
 .select-field {
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem;
   border: 1px solid var(--theme--border-color, #e1e5e9);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--theme--background, white);
   color: var(--theme--foreground, #1a1a1a);
   font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .input-field:focus,
@@ -815,7 +839,7 @@ const getEdgeTypeDescription = (edgeType: string) => {
 .select-field:focus {
   outline: none;
   border-color: var(--theme--primary, #0066cc);
-  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
 }
 
 .input-field[readonly],
@@ -826,8 +850,9 @@ const getEdgeTypeDescription = (edgeType: string) => {
 }
 
 .textarea-field {
-  min-height: 80px;
+  min-height: 90px;
   resize: vertical;
+  line-height: 1.5;
 }
 
 .no-selection {
@@ -840,14 +865,15 @@ const getEdgeTypeDescription = (edgeType: string) => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1.25rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
+  margin-top: 0.5rem;
 }
 
 .btn:focus {
@@ -882,8 +908,9 @@ const getEdgeTypeDescription = (edgeType: string) => {
 }
 
 .btn.small {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  margin-top: 0.375rem;
 }
 
 .btn.block {
@@ -899,30 +926,30 @@ const getEdgeTypeDescription = (edgeType: string) => {
 .multiple-collections {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .collection-link-item {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: flex-start;
-  padding: 0.75rem;
+  padding: 1rem;
   background: var(--theme--background-subdued, #f8f9fa);
   border: 1px solid var(--theme--border-color-subdued, #e1e5e9);
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .collection-link-fields {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.375rem;
 }
 
 .field-label {
@@ -934,18 +961,20 @@ const getEdgeTypeDescription = (edgeType: string) => {
 
 .remove-btn {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 1rem; /* Align with first field */
+  margin-top: 1.25rem; /* Align with first field */
+  border-radius: 6px;
 }
 
 .collection-actions {
   display: flex;
   justify-content: flex-start;
+  margin-top: 0.5rem;
 }
 
 .default-node-size-section {

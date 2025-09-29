@@ -30,27 +30,25 @@ const props = defineProps<NodeProps<Data>>();
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 16px;
   background: #0284c7;
   border: 2px solid #0284c7;
-  border-radius: 14px;
-  width: 160px;
-  min-height: 56px;
+  border-radius: 50%;
+  width: 100px;
+  height: 100px;
   text-align: center;
+  box-sizing: border-box;
   transition: background .2s ease, border-color .2s ease, transform .15s ease;
 }
 
 .node-label { 
-  font-size: 14px; 
+  font-size: 11px; 
   font-weight: 500; 
   color: #ffffff; 
-  white-space: normal;
-  word-wrap: break-word;
-  word-break: break-word;
-  overflow-wrap: break-word; 
   text-shadow: 0 1px 1px rgba(0,0,0,0.3); 
-  line-height: 1.3;
+  line-height: 1.1;
   text-align: center;
+  max-width: 70px;
+  padding: 0 5px;
 }
 
 .terminal-shape:hover { transform: translateY(-2px); background: #0369a1; border-color: #0369a1; }

@@ -72,6 +72,7 @@ const emit = defineEmits<{
   archive: [];
   'save-as-copy': [];
   'update:mode': [mode: 'edit' | 'view'];
+  refresh: [];
 }>();
 
 // Check if user can edit based on permissions
@@ -353,6 +354,52 @@ const saveFlow = async () => {
     const message = e?.response?.data?.errors?.[0]?.message || e.message || 'Failed to save workflow';
     notifications.add({ title: 'Save Failed', text: message, type: 'error' });
     debugLog('save error', e?.response || e);
+  } finally {
+    localSaving.value = false;
+  }
+};
+
+const cloneWorkflow = async () => {
+  if (localSaving.value) return;
+  if (props.isNew) {
+    notifications.add({ title: 'Cannot Clone', text: 'Save the workflow first before cloning', type: 'error' });
+    return;
+  }
+  
+  debugLog('cloneWorkflow invoked');
+  try {
+    localSaving.value = true;
+    const flowData = { nodes: flowNodes.value, edges: flowEdges.value };
+    
+    // Create clone payload with modified name
+    const originalName = flowName.value?.trim() || props.item?.name || 'Untitled Workflow';
+    const cloneName = `${originalName} (Copy)`;
+    
+    const payload: Record<string, any> = {
+      data: flowData,
+      name: cloneName,
+      description: props.item?.description || props.edits?.description || ''
+    };
+
+    const endpoint = `/items/${props.collection}`;
+    const response = await api.post(endpoint, payload);
+    const cloned = response?.data?.data || response?.data;
+
+    notifications.add({ 
+      title: 'Workflow Cloned', 
+      text: `Created "${cloneName}" (ID: ${cloned?.id})`, 
+      type: 'success' 
+    });
+
+    // Navigate to the cloned workflow for editing
+    if (cloned?.id) {
+      const cloneUrl = `/admin/content/${props.collection}/${cloned.id}`;
+      window.location.href = cloneUrl;
+    }
+  } catch (e: any) {
+    const message = e?.response?.data?.errors?.[0]?.message || e.message || 'Failed to clone workflow';
+    notifications.add({ title: 'Clone Failed', text: message, type: 'error' });
+    debugLog('clone error', e?.response || e);
   } finally {
     localSaving.value = false;
   }
@@ -1217,6 +1264,7 @@ watch([selectedNodes, isMultiSelecting], () => {
       @delete="() => emit('delete')"
       @archive="() => emit('archive')"
       @save-as-copy="() => emit('save-as-copy')"
+      @clone-workflow="cloneWorkflow"
       @update-flow-name="handleUpdateFlowName"
       @update-mode="handleModeChange"
       @toggle-follow-mode="toggleFollowMode"

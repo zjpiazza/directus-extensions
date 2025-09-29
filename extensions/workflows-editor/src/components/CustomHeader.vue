@@ -25,6 +25,7 @@ const emit = defineEmits<{
   delete: [];
   archive: [];
   'save-as-copy': [];
+  'clone-workflow': [];
   'update-flow-name': [value: string];
   'update-mode': [mode: 'edit' | 'view'];
   'toggle-follow-mode': [enabled: boolean];
@@ -166,6 +167,18 @@ const breadcrumbs = computed(() => {
             </div>
           </button>
         </div>
+
+        <button
+          v-if="!props.isNew && canEdit"
+          class="btn btn-secondary"
+          data-test="clone-workflow-btn"
+          :disabled="saving"
+          @click="$emit('clone-workflow')"
+          title="Clone this workflow"
+        >
+          <v-icon name="content_copy" />
+          Clone
+        </button>
 
         <button
           v-if="canEdit"

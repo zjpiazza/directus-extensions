@@ -12,6 +12,7 @@ import NodePalette from './components/NodePalette.vue';
 import DetailsSidebar from './components/DetailsSidebar.vue';
 import WorkflowLegend from './components/WorkflowLegend.vue';
 import PageNavigation from './components/PageNavigation.vue';
+import PageSelector from './components/PageSelector.vue';
 
 // Import your custom node components
 import TerminalNode from './flow-nodes/TerminalNode.vue';
@@ -19,7 +20,7 @@ import StartNode from './flow-nodes/StartNode.vue';
 import EndNode from './flow-nodes/EndNode.vue';
 import ProcessNode from './flow-nodes/ProcessNode.vue';
 import DecisionNode from './flow-nodes/DecisionNode.vue';
-import OffPageNode from './flow-nodes/OffPageNode.vue';
+
 import PageNode from './flow-nodes/PageNode.vue';
 
 // Import custom edge component
@@ -29,7 +30,7 @@ import LabeledEdge from './components/LabeledEdge.vue';
 import { useWorkflowData } from './composables/useWorkflowData';
 
 // Import shared injection keys
-import { WORKFLOWS_KEY, CURRENT_WORKFLOW_ID_KEY, IS_EDIT_MODE_KEY } from './constants/injection-keys';
+import { WORKFLOWS_KEY, CURRENT_WORKFLOW_ID_KEY, IS_EDIT_MODE_KEY, PAGES_KEY, ADD_PAGE_KEY, UPDATE_NODE_KEY } from './constants/injection-keys';
 
 // Define types for Directus (simplified for now)
 interface Field {
@@ -161,6 +162,7 @@ const updateNodeData = () => {
     edges: flowEdges.value,
     pages: pages.value,
     currentPageId: currentPageId.value,
+    pageViewports: pageViewports.value,
   });
 };
 
@@ -172,6 +174,7 @@ const updateEdgeData = () => {
     edges: flowEdges.value,
     pages: pages.value,
     currentPageId: currentPageId.value,
+    pageViewports: pageViewports.value,
   });
 };
 
@@ -222,12 +225,11 @@ const nodeTypes = [
   { type: 'process', subtype: 'task', label: 'Task', icon: 'task' },
   { type: 'process', subtype: 'form', label: 'Form', icon: 'description' },
   { type: 'decision', label: 'Decision', icon: 'help' },
-  { type: 'offpage', label: 'Off-page Connector', icon: 'link' },
-  { type: 'page', label: 'Page', icon: 'folder_open' },
+  { type: 'page', label: 'Page', icon: 'pentagon' },
 ];
 
 // Vue Flow composable
-const { project, fitView, updateEdge, addEdges, snapToGrid } = useVueFlow();
+const { project, fitView, updateEdge, addEdges, snapToGrid, getViewport, setViewport } = useVueFlow();
 
 // Computed properties
 const title = computed(() => {
@@ -261,10 +263,10 @@ const hasChanges = computed(() => {
   return false;
 });
 
-// Computed property to get workflow IDs used in off-page connectors
+// Computed property to get workflow IDs used in terminal node connectors (removed off-page functionality)
 const usedWorkflowIds = computed(() => {
   return flowNodes.value
-    .filter(node => node.type === 'offpage' && node.data.targetWorkflowId)
+    .filter(node => node.type === 'end' && node.data.targetWorkflowId)
     .map(node => node.data.targetWorkflowId)
     .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
 });
@@ -332,7 +334,12 @@ const saveFlow = async () => {
       currentPageId: currentPageId.value
     };
     const fieldKey = 'data';
-    const payload: Record<string, any> = { [fieldKey]: flowData };
+    const payload: Record<string, any> = { 
+      [fieldKey]: {
+        ...flowData,
+        pageViewports: pageViewports.value
+      }
+    };
 
     // Always include a name (edits -> item -> fallback)
     const nameValue = flowName.value?.trim() || (props.edits as any).name || props.item?.name || 'Untitled Workflow';
@@ -481,7 +488,7 @@ const getNodeIcon = (type: string): string => {
     end: 'stop',
     process: 'task',
     decision: 'help',
-    offpage: 'link',
+    page: 'pentagon',
     terminal: 'terminal'
   };
   return iconMap[type] || 'circle';
@@ -494,7 +501,7 @@ const formatNodeType = (type: string): string => {
     end: 'End Node', 
     process: 'Process Node',
     decision: 'Decision Node',
-    offpage: 'Off-page Connector',
+    page: 'Page Node',
     terminal: 'Terminal Node'
   };
   return typeMap[type] || type.charAt(0).toUpperCase() + type.slice(1);
@@ -546,7 +553,7 @@ const focusOnNode = (nodeId: string) => {
   fitView({
     nodes: [nodeId],
     duration: 400,
-    padding: 0.3,
+    padding: { top: 0.3, bottom: 0.3, left: 0.3, right: 0.3 },
     maxZoom: 1.5,
     minZoom: 1.2
   });
@@ -689,7 +696,7 @@ const onDrop = (event: DragEvent) => {
       ...(nodeType.type === 'process' && { openCollection: handleOpenCollection }),
       // Add page-specific data for page nodes
       ...(nodeType.type === 'page' && { 
-        pageId: `page-${Date.now()}`,
+        targetPageId: null, // No page linked initially
         nodeCount: 0,
         color: '#3b82f6'
       }),
@@ -698,16 +705,7 @@ const onDrop = (event: DragEvent) => {
 
   flowNodes.value.push(newNode);
   
-  // If it's a page node, create the corresponding page entry
-  if (nodeType.type === 'page' && newNode.data.pageId) {
-    addPage({
-      id: newNode.data.pageId,
-      name: newNode.data.name || newNode.data.label || 'New Page',
-      description: newNode.data.description || '',
-      parentPageId: currentPageId.value,
-      color: newNode.data.color || '#3b82f6'
-    });
-  }
+  // Page nodes don't auto-create pages - user must select or create a target page
   
   // Update node data and persist
   updateNodeData();
@@ -717,8 +715,8 @@ const onNodeClick = (event: { node: Node; event: MouseEvent }) => {
   const nodeId = event.node.id;
   
   // Handle page node navigation in view mode
-  if (event.node.type === 'page' && !isEditMode.value && event.node.data?.pageId) {
-    handleEnterPage(event.node.data.pageId);
+  if (event.node.type === 'page' && !isEditMode.value && event.node.data?.targetPageId) {
+    handleEnterPage(event.node.data.targetPageId);
     return;
   }
   
@@ -795,12 +793,27 @@ const updateFormCollections = (collections: Array<{ collection: string; label?: 
   }
 };
 
-const updateOffPageTarget = (workflowId: string) => {
-  if (selectedNode.value && selectedNode.value.type === 'offpage') {
+const updateEndNodeTarget = (workflowId: string) => {
+  if (selectedNode.value && selectedNode.value.type === 'end') {
     if (!workflowId) {
       delete selectedNode.value.data.targetWorkflowId;
     } else {
       selectedNode.value.data.targetWorkflowId = workflowId;
+    }
+    updateNodeData();
+    updateField('data', {
+      nodes: flowNodes.value,
+      edges: flowEdges.value,
+    });
+  }
+};
+
+const updatePageNodeTarget = (pageId: string) => {
+  if (selectedNode.value && selectedNode.value.type === 'page') {
+    if (!pageId) {
+      delete selectedNode.value.data.targetPageId;
+    } else {
+      selectedNode.value.data.targetPageId = pageId;
     }
     updateNodeData();
     updateField('data', {
@@ -827,18 +840,39 @@ const handleOpenCollection = (collectionName: string) => {
 
 // Page navigation handlers
 const handleNavigateToPage = (pageId: string) => {
+  // Save current viewport state for the current page
+  const currentViewport = getViewport();
+  savePageViewport(currentPageId.value, currentViewport);
+  
+  // Navigate to the new page
   navigateToPage(pageId);
   
-  // Fit view to show the nodes on the new page
+  // Restore or set viewport for the new page
   nextTick(() => {
-    if (visibleNodes.value.length > 0) {
+    const savedViewport = getPageViewport(pageId);
+    if (savedViewport) {
+      // Restore saved viewport
+      setViewport(savedViewport, { duration: 300 });
+    } else if (visibleNodes.value.length > 0) {
+      // Fit view to show the nodes on the new page with extra bottom padding for PageSelector
       fitView({ 
         nodes: visibleNodes.value.map(n => n.id),
         duration: 400,
-        padding: 0.1
+        padding: { top: 0.15, bottom: 0.15, left: 0.15, right: 0.15 }
       });
     }
   });
+};
+
+// Page viewport management
+const pageViewports = ref<Record<string, { x: number; y: number; zoom: number }>>({});
+
+const savePageViewport = (pageId: string, viewport: { x: number; y: number; zoom: number }) => {
+  pageViewports.value[pageId] = { ...viewport };
+};
+
+const getPageViewport = (pageId: string) => {
+  return pageViewports.value[pageId] || null;
 };
 
 const handleEnterPage = (pageId: string) => {
@@ -864,6 +898,71 @@ const handleEnterPage = (pageId: string) => {
   }
   
   handleNavigateToPage(pageId);
+};
+
+// New page management functions for PageSelector
+const handleCreatePage = () => {
+  const newPageId = `page-${Date.now()}`;
+  const newPageName = `Page ${pages.value.length + 1}`;
+  
+  // Predefined set of nice colors
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#64748b'];
+  const pageColor = colors[pages.value.length % colors.length];
+  
+  addPage({
+    id: newPageId,
+    name: newPageName,  
+    description: `New page created on ${new Date().toLocaleDateString()}`,
+    parentPageId: 'root', // Always create at root level for now
+    color: pageColor
+  });
+  
+  // Navigate to the new page
+  handleNavigateToPage(newPageId);
+  
+  // Update node data to persist the page
+  updateNodeData();
+  
+  notifications.add({ 
+    title: 'Page Created', 
+    text: `"${newPageName}" has been created and is now active`, 
+    type: 'success' 
+  });
+};
+
+const handleDeletePage = (pageId: string) => {
+  if (pageId === 'root') return; // Can't delete root page
+  
+  // If we're currently on the page being deleted, navigate to root
+  if (currentPageId.value === pageId) {
+    handleNavigateToPage('root');
+  }
+  
+  // Remove the page
+  removePage(pageId);
+  
+  // Remove any page nodes that reference this page
+  flowNodes.value = flowNodes.value.filter(node => 
+    !(node.type === 'page' && node.data?.targetPageId === pageId)
+  );
+  
+  // Update and persist
+  updateNodeData();
+};
+
+const handleRenamePage = (pageId: string, newName: string) => {
+  if (pageId === 'root') return; // Can't rename root page
+  
+  const page = pages.value.find(p => p.id === pageId);
+  if (page) {
+    page.name = newName;
+    
+    // Page nodes that reference this page don't need updates
+    // as they show their own label, not the target page name
+    
+    // Update and persist
+    updateNodeData();
+  }
 };
 
 const deleteSelectedNode = () => {
@@ -919,8 +1018,8 @@ const getActualNodeDimensions = (nodeId: string) => {
     case 'end':
     case 'terminal':
       return { width: 160, height: 56 }; // Base size, but actual height may be larger
-    case 'offpage':
-      return { width: 40, height: 32 };
+    case 'page':
+      return { width: 60, height: 48 };
     default:
       return { width: 160, height: 56 };
   }
@@ -1244,6 +1343,15 @@ watch(() => props.primaryKey, () => {
 provide(WORKFLOWS_KEY, availableWorkflows);
 provide(CURRENT_WORKFLOW_ID_KEY, computed(() => props.primaryKey?.toString() || null));
 provide(IS_EDIT_MODE_KEY, isEditMode);
+provide(PAGES_KEY, pages);
+provide(ADD_PAGE_KEY, addPage);
+provide(UPDATE_NODE_KEY, (nodeId: string, updates: any) => {
+  const node = flowNodes.value.find(n => n.id === nodeId);
+  if (node && node.data) {
+    Object.assign(node.data, updates);
+    updateNodeData();
+  }
+});
 
 // Lifecycle hooks
 onMounted(() => {
@@ -1331,12 +1439,18 @@ watch(() => props.item, (newItem) => {
       pages.value = flowData.pages || [];
       currentPageId.value = flowData.currentPageId || 'root';
       
+      // Load page viewports
+      pageViewports.value = flowData.pageViewports || {};
+      
       // Update page counts after loading
       updatePageCounts();
 
       if (validatedNodes && validatedNodes.length > 0) {
         nextTick(() => {
-          fitView({ padding: 0.1, includeHiddenNodes: false });
+          fitView({
+            padding: { top: 0.1, bottom: 0.1, left: 0.1, right: 0.1 },
+            includeHiddenNodes: false
+          });
         });
       }
     } catch {
@@ -1472,15 +1586,6 @@ watch([selectedNodes, isMultiSelecting], () => {
           </div>
         </div>
 
-        <!-- Page Navigation -->
-        <PageNavigation
-          v-if="currentPageId !== 'root' || pageBreadcrumbs.length > 1"
-          :breadcrumbs="pageBreadcrumbs"
-          :current-page-id="currentPageId"
-          :is-edit-mode="isEditMode"
-          @navigate-to-page="handleNavigateToPage"
-        />
-
         <!-- Node Description Dialog -->
         <Transition name="description-fade">
           <div 
@@ -1504,16 +1609,18 @@ watch([selectedNodes, isMultiSelecting], () => {
           </div>
         </Transition>
 
-        <VueFlow
-          v-model:nodes="visibleNodes"
-          v-model:edges="visibleEdges"
+        <Transition name="page-transition" mode="out-in">
+          <VueFlow
+            :key="currentPageId"
+            v-model:nodes="visibleNodes"
+            v-model:edges="visibleEdges"
           :node-types="{
             start: StartNode,
             end: EndNode,
             terminal: TerminalNode,
             process: ProcessNode,
             decision: DecisionNode,
-            offpage: OffPageNode,
+
             page: PageNode
           }"
           :edge-types="{
@@ -1553,7 +1660,21 @@ watch([selectedNodes, isMultiSelecting], () => {
 
           <!-- Background with grid -->
           <Background pattern="dots" :gap="20" :size="1" color="#aaa" />
-        </VueFlow>
+          </VueFlow>
+        </Transition>
+
+        <!-- Page Selector at bottom of canvas -->
+        <div class="page-selector-container">
+          <PageSelector
+            :pages="pages"
+            :current-page-id="currentPageId"
+            :is-edit-mode="isEditMode"
+            @navigate-to-page="handleNavigateToPage"
+            @create-page="handleCreatePage"
+            @delete-page="handleDeletePage"
+            @rename-page="handleRenamePage"
+          />
+        </div>
 
         <!-- Off-page References Legend (visible in view mode) -->
         <div v-if="isViewMode && usedWorkflowIds.length > 0" class="canvas-legend">
@@ -1574,6 +1695,7 @@ watch([selectedNodes, isMultiSelecting], () => {
         :selected-edge="selectedEdge"
         :available-collections="availableCollections"
         :available-workflows="availableWorkflows"
+        :available-pages="pages"
         :used-workflow-ids="usedWorkflowIds"
         :edits="props.edits"
         :item="props.item"
@@ -1581,10 +1703,12 @@ watch([selectedNodes, isMultiSelecting], () => {
         @update-edge-data="updateEdgeData"
         @update-form-collection="updateFormCollection"
         @update-form-collections="updateFormCollections"
-        @update-off-page-target="updateOffPageTarget"
+        @update-end-node-target="updateEndNodeTarget"
+        @update-page-node-target="updatePageNodeTarget"
         @delete-selected-node="deleteSelectedNode"
         @delete-selected-edge="deleteSelectedEdge"
         @navigate-to-workflow="handleNavigateToWorkflow"
+        @navigate-to-page="handleNavigateToPage"
         @toggle="toggleDetailsSidebar"
       />
     </div>
@@ -1679,7 +1803,7 @@ watch([selectedNodes, isMultiSelecting], () => {
 .canvas-container :deep(.vue-flow__node.selected .terminal-node),
 .canvas-container :deep(.vue-flow__node.selected .process-node),
 .canvas-container :deep(.vue-flow__node.selected .decision-node),
-.canvas-container :deep(.vue-flow__node.selected .offpage-node) {
+.canvas-container :deep(.vue-flow__node.selected .page-node) {
   outline: 3px solid var(--theme--primary, #0066cc);
   outline-offset: 3px;
   box-shadow: 0 0 8px rgba(0, 102, 204, 0.3);
@@ -1689,7 +1813,7 @@ watch([selectedNodes, isMultiSelecting], () => {
 .canvas-container :deep(.vue-flow__node.multi-selected .terminal-node),
 .canvas-container :deep(.vue-flow__node.multi-selected .process-node),
 .canvas-container :deep(.vue-flow__node.multi-selected .decision-node),
-.canvas-container :deep(.vue-flow__node.multi-selected .offpage-node) {
+.canvas-container :deep(.vue-flow__node.multi-selected .page-node) {
   outline: 3px solid var(--theme--secondary, #28a745);
   outline-offset: 3px;
   box-shadow: 0 0 8px rgba(40, 167, 69, 0.3);
@@ -1699,7 +1823,7 @@ watch([selectedNodes, isMultiSelecting], () => {
 .canvas-container :deep(.vue-flow__node.focused .terminal-node),
 .canvas-container :deep(.vue-flow__node.focused .process-node),
 .canvas-container :deep(.vue-flow__node.focused .decision-node),
-.canvas-container :deep(.vue-flow__node.focused .offpage-node) {
+.canvas-container :deep(.vue-flow__node.focused .page-node) {
   outline: 4px solid var(--theme--warning, #ffc107);
   outline-offset: 3px;
   box-shadow: 0 0 20px rgba(255, 193, 7, 0.4);
@@ -1990,6 +2114,40 @@ watch([selectedNodes, isMultiSelecting], () => {
 .description-fade-leave-from {
   opacity: 1;
   transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+/* Page Selector Container */
+.page-selector-container {
+  position: absolute;
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+}
+
+/* Page Transition Animation */
+.page-transition-enter-active,
+.page-transition-leave-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.page-transition-enter-from {
+  opacity: 0;
+  transform: translateX(30px) scale(0.95);
+  filter: blur(2px);
+}
+
+.page-transition-leave-to {
+  opacity: 0;
+  transform: translateX(-30px) scale(0.95);
+  filter: blur(2px);
+}
+
+.page-transition-enter-to,
+.page-transition-leave-from {
+  opacity: 1;
+  transform: translateX(0) scale(1);
   filter: blur(0);
 }
 

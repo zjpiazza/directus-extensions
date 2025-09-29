@@ -124,6 +124,11 @@ export function useWorkflowData(initialData?: WorkflowData) {
 
   // Page management methods
   const addPage = (page: Page) => {
+    // Ensure page has a color
+    if (!page.color) {
+      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+      page.color = colors[pages.value.length % colors.length];
+    }
     pages.value.push(page);
   };
 
@@ -135,6 +140,22 @@ export function useWorkflowData(initialData?: WorkflowData) {
         node.data.pageId = 'root';
       }
     });
+    // Also remove any child pages
+    const childPages = pages.value.filter(p => p.parentPageId === pageId);
+    childPages.forEach(childPage => removePage(childPage.id));
+  };
+
+  const updatePage = (pageId: string, updates: Partial<Pick<Page, 'name' | 'description' | 'color'>>) => {
+    const pageIndex = pages.value.findIndex(p => p.id === pageId);
+    if (pageIndex !== -1) {
+      const existingPage = pages.value[pageIndex];
+      if (existingPage) {
+        pages.value[pageIndex] = { 
+          ...existingPage, 
+          ...updates
+        };
+      }
+    }
   };
 
   const navigateToPage = (pageId: string) => {
@@ -148,9 +169,9 @@ export function useWorkflowData(initialData?: WorkflowData) {
         node.type !== 'page' && (node.data?.pageId || 'root') === page.id
       ).length;
       
-      // Find page nodes that represent this page and update their count
+      // Find page nodes that link to this page and update their count
       const pageNodes = flowNodes.value.filter(node => 
-        node.type === 'page' && node.data?.pageId === page.id
+        node.type === 'page' && node.data?.targetPageId === page.id
       );
       pageNodes.forEach(pageNode => {
         if (pageNode.data) {
@@ -188,6 +209,7 @@ export function useWorkflowData(initialData?: WorkflowData) {
     // Page methods
     addPage,
     removePage,
+    updatePage,
     navigateToPage,
     updatePageCounts,
   };

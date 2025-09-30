@@ -2,6 +2,7 @@
 	<div class="phase-node" :class="`phase-${data.phase}`">
 		<div class="node-content">
 			<span class="node-label">{{ data.label }}</span>
+			<span v-if="data.description" class="node-description">{{ data.description }}</span>
 		</div>
 		
 		<!-- Flow handles -->
@@ -40,6 +41,7 @@ interface Props {
 	data: {
 		label: string;
 		phase: string;
+		description?: string;
 	};
 	selected?: boolean;
 }
@@ -73,6 +75,9 @@ defineProps<Props>();
 
 .node-content {
 	text-align: center;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
 }
 
 .node-label {
@@ -81,6 +86,13 @@ defineProps<Props>();
 	color: var(--theme--foreground, #374151);
 	line-height: 1.3;
 	white-space: pre-line;
+}
+
+.node-description {
+	font-size: calc(0.4vw + 0.3rem);
+	color: var(--theme--foreground-subdued, #6b7280);
+	line-height: 1.2;
+	font-style: italic;
 }
 
 .phase-handle {

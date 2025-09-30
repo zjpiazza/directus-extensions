@@ -4,11 +4,40 @@ import type { NodeProps } from '@vue-flow/core';
 import { inject, computed } from 'vue';
 import { WORKFLOWS_KEY, IS_EDIT_MODE_KEY } from '../constants/injection-keys';
 
-interface Data { label: string; description?: string; targetWorkflowId?: string; }
+interface Data { 
+  label: string; 
+  description?: string; 
+  targetWorkflowId?: string;
+  nodeSize?: 'small' | 'medium' | 'large' | 'custom';
+  customWidth?: number;
+  customHeight?: number;
+}
 const props = defineProps<NodeProps<Data>>();
 const workflowsRef = inject<any>(WORKFLOWS_KEY, []);
 const isEditMode = inject<any>(IS_EDIT_MODE_KEY, true);
 const workflows = computed(() => Array.isArray(workflowsRef) ? workflowsRef : workflowsRef?.value || []);
+
+const nodeStyle = computed(() => {
+  const size = props.data.nodeSize || 'medium';
+  
+  // If custom size, use custom dimensions (keep circular)
+  if (size === 'custom') {
+    const dimension = Math.min(props.data.customWidth || 100, props.data.customHeight || 100);
+    return {
+      width: `${dimension}px`,
+      height: `${dimension}px`
+    };
+  }
+  
+  // Otherwise use preset sizes
+  const sizes = {
+    small: { width: '60px', height: '60px' },
+    medium: { width: '100px', height: '100px' },
+    large: { width: '140px', height: '140px' }
+  };
+  
+  return sizes[size as 'small' | 'medium' | 'large'] || sizes.medium;
+});
 
 const getWorkflowLetter = computed(() => {
   if (!props.data.targetWorkflowId) {
@@ -43,6 +72,7 @@ const handleEndNodeClick = () => {
     <div
       class="terminal-shape"
       :class="{ 'linked': !!props.data.targetWorkflowId }"
+      :style="nodeStyle"
       @click="handleEndNodeClick"
       :title="!isEditMode && props.data.targetWorkflowId ? 'Click to navigate to workflow' : ''"
     >
@@ -71,8 +101,6 @@ const handleEndNodeClick = () => {
   background: #dc2626;
   border: 2px solid #dc2626;
   border-radius: 50%;
-  width: 100px;
-  height: 100px;
   text-align: center;
   box-sizing: border-box;
   transition: background .2s ease, border-color .2s ease, transform .15s ease;

@@ -178,6 +178,18 @@ const updateEdgeData = () => {
   });
 };
 
+// Update node size
+const updateNodeSize = (size: string, customWidth?: number, customHeight?: number) => {
+  // The node data is already updated in DetailsSidebar, just persist
+  updateField('data', {
+    nodes: flowNodes.value,
+    edges: flowEdges.value,
+    pages: pages.value,
+    currentPageId: currentPageId.value,
+    pageViewports: pageViewports.value,
+  });
+};
+
 // Add selectedEdge state
 const selectedEdge = ref<Edge | null>(null);
 
@@ -684,6 +696,7 @@ const onDrop = (event: DragEvent) => {
     id: `${nodeType.type}-${Date.now()}`,
     type: nodeType.type,
     position,
+    resizable: true, // Enable resizing
     data: {
       label: nodeType.label,
       name: nodeType.label,
@@ -1412,6 +1425,7 @@ watch(() => props.item, (newItem) => {
           // Ensure every node has a stable id (fallback if missing)
           id: node.id || `node-${index}-${Date.now()}`,
           ...node,
+          resizable: true, // Enable resizing for all nodes
           class: cleanClass,
           data: {
             label: node.data?.label || 'Unnamed',
@@ -1705,6 +1719,7 @@ watch([selectedNodes, isMultiSelecting], () => {
         @update-form-collections="updateFormCollections"
         @update-end-node-target="updateEndNodeTarget"
         @update-page-node-target="updatePageNodeTarget"
+        @update-node-size="updateNodeSize"
         @delete-selected-node="deleteSelectedNode"
         @delete-selected-edge="deleteSelectedEdge"
         @navigate-to-workflow="handleNavigateToWorkflow"

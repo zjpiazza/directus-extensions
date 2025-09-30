@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, inject } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 import type { NodeProps } from '@vue-flow/core';
+import { IS_EDIT_MODE_KEY } from '../constants/injection-keys';
 
 interface Data {
   label: string;
@@ -11,10 +12,14 @@ interface Data {
   targetCollections?: Array<{ collection: string; label?: string }>;
   formLabel?: string;
   openCollection?: (collectionName: string) => void;
-  nodeSize?: 'small' | 'medium' | 'large';
+  nodeSize?: 'small' | 'medium' | 'large' | 'custom';
+  customWidth?: number;
+  customHeight?: number;
 }
 
 const props = defineProps<NodeProps<Data>>();
+
+const isEditMode = inject(IS_EDIT_MODE_KEY, false);
 
 const handleOpenCollection = (collectionName: string) => {
   if (props.data.subtype === 'form' && collectionName && props.data.openCollection) {
@@ -51,12 +56,23 @@ const displayLabel = computed(() => {
 
 const nodeStyle = computed(() => {
   const size = props.data.nodeSize || 'medium';
+  
+  // If custom size, use custom dimensions
+  if (size === 'custom') {
+    return {
+      width: `${props.data.customWidth || 160}px`,
+      minHeight: `${props.data.customHeight || 56}px`
+    };
+  }
+  
+  // Otherwise use preset sizes
   const sizes = {
     small: { width: '120px', minHeight: '60px' },
     medium: { width: '160px', minHeight: '56px' },
     large: { width: '240px', minHeight: '100px' }
   };
-  return sizes[size];
+  
+  return sizes[size as 'small' | 'medium' | 'large'] || sizes.medium;
 });
 </script>
 

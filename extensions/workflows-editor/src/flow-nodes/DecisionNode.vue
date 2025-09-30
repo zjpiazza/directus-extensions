@@ -1,24 +1,40 @@
 <script setup lang="ts">
+import { computed, inject } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 import type { NodeProps } from '@vue-flow/core';
+import { IS_EDIT_MODE_KEY } from '../constants/injection-keys';
 
 interface Data { 
   label: string; 
   description?: string; 
-  nodeSize?: 'small' | 'medium' | 'large';
+  nodeSize?: 'small' | 'medium' | 'large' | 'custom';
+  customWidth?: number;
+  customHeight?: number;
 }
 const props = defineProps<NodeProps<Data>>();
 
-import { computed } from 'vue';
+const isEditMode = inject(IS_EDIT_MODE_KEY, false);
 
 const nodeStyle = computed(() => {
   const size = props.data.nodeSize || 'medium';
+  
+  // If custom size, use custom dimensions
+  if (size === 'custom') {
+    const dimension = Math.min(props.data.customWidth || 136, props.data.customHeight || 136);
+    return {
+      width: `${dimension}px`,
+      height: `${dimension}px`
+    };
+  }
+  
+  // Otherwise use preset sizes
   const sizes = {
     small: { width: '100px', height: '100px' },
     medium: { width: '136px', height: '136px' },
     large: { width: '180px', height: '180px' }
   };
-  return sizes[size];
+  
+  return sizes[size as 'small' | 'medium' | 'large'] || sizes.medium;
 });
 </script>
 

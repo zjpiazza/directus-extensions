@@ -12,6 +12,9 @@ interface PageData {
   targetPageId?: string | null;
   nodeCount?: number;
   color?: string;
+  nodeSize?: 'small' | 'medium' | 'large' | 'custom';
+  customWidth?: number;
+  customHeight?: number;
 }
 
 const props = defineProps<NodeProps<PageData>>();
@@ -19,6 +22,27 @@ const isEditMode = inject<any>(IS_EDIT_MODE_KEY, true);
 const pages = inject<any>(PAGES_KEY, ref([]));
 const addPage = inject<any>(ADD_PAGE_KEY, () => {});
 const updateNode = inject<any>(UPDATE_NODE_KEY, () => {});
+
+const nodeStyle = computed(() => {
+  const size = props.data.nodeSize || 'medium';
+  
+  // If custom size, use custom dimensions
+  if (size === 'custom') {
+    return {
+      width: `${props.data.customWidth || 60}px`,
+      height: `${props.data.customHeight || 48}px`
+    };
+  }
+  
+  // Otherwise use preset sizes
+  const sizes = {
+    small: { width: '40px', height: '32px' },
+    medium: { width: '60px', height: '48px' },
+    large: { width: '80px', height: '64px' }
+  };
+  
+  return sizes[size as 'small' | 'medium' | 'large'] || sizes.medium;
+});
 
 // Get all pages including root
 const allPages = computed(() => [
@@ -104,7 +128,7 @@ const getNodeTitle = () => {
         'view-mode': !isEditMode,
         'unlinked': !isLinked
       }"
-      :style="{ '--page-color': pageColor }"
+      :style="{ '--page-color': pageColor, ...nodeStyle }"
       @click="handlePageClick"
       :title="getNodeTitle()"
     >
@@ -123,8 +147,6 @@ const getNodeTitle = () => {
 
 .pentagon-shape {
   position: relative;
-  width: 60px;
-  height: 48px;
   background: var(--page-color, #3b82f6);
   border: 2px solid var(--page-color, #3b82f6);
   clip-path: polygon(0% 0%, 100% 0%, 100% 75%, 50% 100%, 0% 75%);

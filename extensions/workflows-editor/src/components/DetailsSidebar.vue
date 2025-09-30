@@ -48,6 +48,7 @@ const emit = defineEmits<{
   'navigate-to-workflow': [workflowId: string];
   'navigate-to-page': [pageId: string];
   'toggle': [];
+  'update-node-size': [size: string, width?: number, height?: number];
 }>();
 
 const updateNodeData = () => {
@@ -205,6 +206,25 @@ const getEdgeTypeDescription = (edgeType: string) => {
     'straight': 'Direct straight line connections'
   };
   return edgeTypeMap[edgeType] || 'Curved, smooth connections';
+};
+
+// Node size editing
+const updateNodeSize = (size: string, customWidth?: number, customHeight?: number) => {
+  if (!props.selectedNode) return;
+  
+  props.selectedNode.data.nodeSize = size;
+  
+  if (size === 'custom' && customWidth && customHeight) {
+    props.selectedNode.data.customWidth = customWidth;
+    props.selectedNode.data.customHeight = customHeight;
+  } else {
+    // Clear custom dimensions when using preset sizes
+    delete props.selectedNode.data.customWidth;
+    delete props.selectedNode.data.customHeight;
+  }
+  
+  emit('update-node-size', size, customWidth, customHeight);
+  updateNodeData();
 };
 </script>
 
@@ -396,6 +416,52 @@ const getEdgeTypeDescription = (edgeType: string) => {
             @input="isEditMode ? updateNodeData : undefined"
           />
         </div>
+        
+        <!-- Node Size Selection -->
+        <div class="property-group">
+          <label>Node Size</label>
+          <select
+            :value="selectedNode.data.nodeSize || 'medium'"
+            :disabled="isViewMode"
+            class="select-field"
+            @change="isEditMode ? updateNodeSize(($event.target as HTMLSelectElement).value) : undefined"
+          >
+            <option value="small">Small (120×60)</option>
+            <option value="medium">Medium (160×56)</option>
+            <option value="large">Large (240×100)</option>
+            <option value="custom">Custom</option>
+          </select>
+          
+          <!-- Custom size inputs -->
+          <div 
+            v-if="selectedNode.data.nodeSize === 'custom'" 
+            class="custom-size-inputs"
+          >
+            <div class="custom-size-field">
+              <label>Width (px)</label>
+              <input
+                type="number"
+                :value="selectedNode.data.customWidth || 160"
+                :readonly="isViewMode"
+                min="80"
+                class="input-field"
+                @input="isEditMode ? updateNodeSize('custom', Number(($event.target as HTMLInputElement).value), selectedNode.data.customHeight || 56) : undefined"
+              />
+            </div>
+            <div class="custom-size-field">
+              <label>Height (px)</label>
+              <input
+                type="number"
+                :value="selectedNode.data.customHeight || 56"
+                :readonly="isViewMode"
+                min="40"
+                class="input-field"
+                @input="isEditMode ? updateNodeSize('custom', selectedNode.data.customWidth || 160, Number(($event.target as HTMLInputElement).value)) : undefined"
+              />
+            </div>
+          </div>
+        </div>
+        
         <div class="property-group">
           <label>Type</label>
           <input
@@ -1111,5 +1177,29 @@ const getEdgeTypeDescription = (edgeType: string) => {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.custom-size-inputs {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.custom-size-field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.custom-size-field label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--theme--foreground-subdued, #6c757d);
+  margin: 0;
+}
+
+.custom-size-field input {
+  margin: 0;
 }
 </style>

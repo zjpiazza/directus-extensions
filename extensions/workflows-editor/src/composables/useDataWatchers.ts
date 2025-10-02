@@ -80,9 +80,11 @@ export function useDataWatchers({
   setViewport: (viewport: any) => void;
   fitView: (options: any) => void;
 }) {
-  // Watch for props.item.data changes to load workflow data
-  watch(() => itemData.value, (newData) => {
-    console.log('🔄 props.item.data changed, loading data:', {
+  // Watch for props.item changes to load workflow data
+  watch(() => itemData.value, (newItem) => {
+    const newData = newItem?.data;
+    console.log('🔄 props.item changed, loading data:', {
+      hasItem: !!newItem,
       hasData: !!newData,
       dataType: typeof newData,
       dataPreview: createDataPreview(newData, 200),
@@ -177,7 +179,7 @@ export function useDataWatchers({
       pageViewports.value
     );
     
-    const loadedData = itemData.value;
+    const loadedData = itemData.value?.data;
     
     // If we have loaded data, compare it with current state
     if (loadedData && typeof loadedData === 'object') {

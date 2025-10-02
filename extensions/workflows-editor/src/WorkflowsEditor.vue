@@ -163,7 +163,7 @@ const updateNodeData = () => {
   baseUpdateNodeData();
   updatePageCounts();
   // Update the field to persist the changes
-  updateField('data', createFlowDataStructure(
+  boundUpdateField('data', createFlowDataStructure(
     flowNodes.value,
     flowEdges.value,
     pages.value,
@@ -190,7 +190,7 @@ const {
 // Update edge data and persist changes
 const updateEdgeData = () => {
   // Update the field to persist the changes
-  updateField('data', createFlowDataStructure(
+  boundUpdateField('data', createFlowDataStructure(
     flowNodes.value,
     flowEdges.value, 
     pages.value,
@@ -219,6 +219,9 @@ watch(() => props.mode, (newMode) => {
     internalMode.value = newMode;
   }
 }, { immediate: true });
+
+// Vue Flow composable - moved here to be available for other composables
+const { project, fitView, updateEdge, addEdges, snapToGrid, getViewport, setViewport } = useVueFlow();
 
 // Initialize follow mode composable
 const {
@@ -291,9 +294,6 @@ const nodeTypes = [
   { type: 'decision', label: 'Decision', icon: 'help' },
   { type: 'page', label: 'Page', icon: 'pentagon' },
 ];
-
-// Vue Flow composable
-const { project, fitView, updateEdge, addEdges, snapToGrid, getViewport, setViewport } = useVueFlow();
 
 // Computed properties
 const title = computed(() => {
@@ -384,7 +384,8 @@ watch(
 );
 
 // updateField is now provided by usePersistence composable - create wrapper for logging
-const updateFieldWithLogging = (fieldKey: string, value: any) => {
+// This wrapper binds the required parameters so composables can call it with just (fieldKey, value)
+const boundUpdateField = (fieldKey: string, value: any) => {
   debugLog('updateField called', fieldKey, value);
   
   console.log('📤 EMITTING update:modelValue:', {
@@ -412,16 +413,28 @@ const saveFlow = async () => {
   const currentViewport = getViewport();
   savePageViewport(currentPageId.value, currentViewport);
   
-  await saveFlowComposable();
+  await saveFlowComposable(
+    props.primaryKey,
+    props.isNew,
+    props.modelValue,
+    props.item,
+    flowName.value,
+    updatePageCounts
+  );
 };
 
 const cloneWorkflow = async () => {
-  await cloneWorkflowComposable();
+  await cloneWorkflowComposable(
+    props.isNew,
+    props.item,
+    props.modelValue,
+    flowName.value
+  );
 };
 // Component event handlers
 const handleUpdateFlowName = (name: string) => {
   flowName.value = name;
-  updateField('name', name);
+  boundUpdateField('name', name);
 };
 
 const handleModeChange = (newMode: 'edit' | 'view') => {
@@ -452,6 +465,7 @@ const pageViewports = ref<Record<string, { x: number; y: number; zoom: number }>
 const {
   localSaving,
   savedItemId,
+  isLoadingInitialData,
   lastEmitVersion,
   updateField,
   saveFlow: saveFlowComposable,
@@ -493,6 +507,31 @@ watch(() => props.modelValue, (val) => {
   }
 });
 
+const handleEnterPage = (pageId: string) => {
+  debugLog('handleEnterPage called with pageId:', pageId);
+  
+  // Create the page if it doesn't exist
+  const existingPage = pages.value.find(p => p.id === pageId);
+  if (!existingPage) {
+    const pageNode = flowNodes.value.find(n => n.type === 'page' && n.data?.pageId === pageId);
+    if (pageNode) {
+      debugLog('Creating new page for pageId:', pageId);
+      addPage({
+        id: pageId,
+        name: pageNode.data.name || pageNode.data.label || 'Untitled Page',
+        description: pageNode.data.description,
+        parentPageId: currentPageId.value,
+        color: pageNode.data.color || '#3b82f6'
+      });
+    } else {
+      debugLog('No page node found for pageId:', pageId);
+      return;
+    }
+  }
+  
+  handleNavigateToPage(pageId);
+};
+
 // Initialize node events composable (handles node selection, clicking, dragging, deletion)
 const {
   onNodeClick,
@@ -507,7 +546,7 @@ const {
   selectedNodes,
   isMultiSelecting,
   updateNodeClasses,
-  updateField,
+  updateField: boundUpdateField,
   handleEnterPage,
   debugLog,
   pages,
@@ -529,7 +568,7 @@ const {
   flowEdges,
   selectedNode,
   selectedEdge,
-  updateField,
+  updateField: boundUpdateField,
   debugLog,
 });
 
@@ -574,7 +613,7 @@ const {
   flowNodes,
   flowEdges,
   updateNodeData,
-  updateField,
+  updateField: boundUpdateField,
 });
 
 // onNodeDragStop is now provided by useNodeEvents composable
@@ -625,31 +664,6 @@ const savePageViewport = (pageId: string, viewport: { x: number; y: number; zoom
 
 const getPageViewport = (pageId: string) => {
   return pageViewports.value[pageId] || null;
-};
-
-const handleEnterPage = (pageId: string) => {
-  debugLog('handleEnterPage called with pageId:', pageId);
-  
-  // Create the page if it doesn't exist
-  const existingPage = pages.value.find(p => p.id === pageId);
-  if (!existingPage) {
-    const pageNode = flowNodes.value.find(n => n.type === 'page' && n.data?.pageId === pageId);
-    if (pageNode) {
-      debugLog('Creating new page for pageId:', pageId);
-      addPage({
-        id: pageId,
-        name: pageNode.data.name || pageNode.data.label || 'Untitled Page',
-        description: pageNode.data.description,
-        parentPageId: currentPageId.value,
-        color: pageNode.data.color || '#3b82f6'
-      });
-    } else {
-      debugLog('No page node found for pageId:', pageId);
-      return;
-    }
-  }
-  
-  handleNavigateToPage(pageId);
 };
 
 // New page management functions for PageSelector
@@ -728,10 +742,9 @@ const deleteSelectedNode = deleteSelectedNodeFromComposable;
 
 
 
-// loadOtherWorkflows is now handled directly by loadWorkflows from useCollectionData
-
+// Load workflows and collections when primaryKey changes
 watch(() => props.primaryKey, () => {
-  loadOtherWorkflows();
+  // loadWorkflows() from useCollectionData handles loading other workflows
   fetchCollections();
 }, { immediate: true });
 
@@ -780,10 +793,84 @@ onUnmounted(() => {
   });
 });
 
+// Show Diff function for debugging
+const showDiff = () => {
+  console.group('🔍 Workflow State Diff');
+  
+  // Current state
+  const currentState = createFlowDataStructure(
+    flowNodes.value,
+    flowEdges.value,
+    pages.value,
+    currentPageId.value,
+    pageViewports.value
+  );
+  
+  // Server state
+  const serverState = props.item?.data;
+  
+  console.log('📊 Current Workflow State:', {
+    nodes: currentState.nodes.length,
+    edges: currentState.edges.length,
+    pages: currentState.pages.length,
+    currentPageId: currentState.currentPageId,
+    data: currentState,
+  });
+  
+  console.log('💾 Server Workflow State:', {
+    nodes: serverState?.nodes?.length || 0,
+    edges: serverState?.edges?.length || 0,
+    pages: serverState?.pages?.length || 0,
+    currentPageId: serverState?.currentPageId,
+    data: serverState,
+  });
+  
+  // Compare states
+  const comparison = compareFlowData(
+    { nodes: currentState.nodes, edges: currentState.edges },
+    serverState
+  );
+  
+  console.log('🔄 Comparison:', {
+    nodesMatch: comparison.nodesMatch,
+    edgesMatch: comparison.edgesMatch,
+    hasChanges: hasChanges.value,
+    hasDiverged: hasDataDiverged(serverState, flowNodes.value, flowEdges.value),
+  });
+  
+  // Detailed diff for nodes
+  if (!comparison.nodesMatch) {
+    console.log('❌ Nodes differ:');
+    console.log('Current nodes:', currentState.nodes);
+    console.log('Server nodes:', serverState?.nodes || []);
+  } else {
+    console.log('✅ Nodes match');
+  }
+  
+  // Detailed diff for edges
+  if (!comparison.edgesMatch) {
+    console.log('❌ Edges differ:');
+    console.log('Current edges:', currentState.edges);
+    console.log('Server edges:', serverState?.edges || []);
+  } else {
+    console.log('✅ Edges match');
+  }
+  
+  console.log('📝 Additional Info:', {
+    'props.item': props.item,
+    'props.modelValue': props.modelValue,
+    'flowName.value': flowName.value,
+    'props.item.name': props.item?.name,
+    'isNew': props.isNew,
+  });
+  
+  console.groupEnd();
+};
+
 // Initialize data watchers composable
 useDataWatchers({
   // Props-related refs
-  itemData: computed(() => props.item?.data),
+  itemData: computed(() => props.item),
   isLoadingInitialData,
   
   // Flow state refs
@@ -807,7 +894,7 @@ useDataWatchers({
   createDataPreview,
   createFlowDataStructure,
   compareFlowData,
-  updateField,
+  updateField: boundUpdateField,
   updateNodeClasses,
   
   // External handlers
@@ -849,6 +936,7 @@ useDataWatchers({
       @update-mode="handleModeChange"
       @toggle-follow-mode="setFollowMode"
       @toggle-descriptions="toggleDescriptions"
+      @show-diff="showDiff"
     />
 
     <!-- Main Editor Layout -->

@@ -8032,7 +8032,6 @@ snapshots:
       sass: 1.92.1
       terser: 5.44.0
       yaml: 2.8.1
-
   vite@7.1.3(@types/node@24.6.1)(sass@1.92.1)(terser@5.44.0)(yaml@2.8.1):
     dependencies:
       esbuild: 0.25.9

@@ -73,6 +73,10 @@ The current repository contains multiple Directus extensions using the "editor" 
 - **NEVER** commit changes unless explicitly prompted
 - Always test changes locally before any commits
 - Use `pnpm build` after every change
+- **ALWAYS remove debug console.log statements after user confirms changes work**
+  - Keep only essential logging (errors, critical state changes)
+  - Remove verbose debug messages, intermediate step logs, and temporary traces
+  - Clean code should have minimal console output
 
 ### Documentation & Research
 - Always consult technical documentation when unsure

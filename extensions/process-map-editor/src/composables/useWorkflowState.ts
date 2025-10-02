@@ -1,5 +1,12 @@
 import { ref, nextTick } from 'vue';
-import type { WorkflowItem, Phase } from './useProcessMapState';
+import type { Phase } from '../domain/phaseManagement';
+import { 
+	generateWorkflowLinkId, 
+	addWorkflow, 
+	removeWorkflow as removeWorkflowFromPhase, 
+	reorderWorkflows, 
+	getPhaseTitle as getPhaseTitleUtil 
+} from '../domain/workflowOperations';
 
 export interface WorkflowData {
 	id: string;
@@ -29,11 +36,6 @@ export function useWorkflowState() {
 		customWorkflowLabel.value = '';
 	}
 
-	// Workflow management functions
-	function generateWorkflowLinkId(): string {
-		return 'wl-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-	}
-
 	async function addWorkflowToPhase(
 		phases: Phase[], 
 		onPhasesUpdate: (phases: Phase[]) => void,
@@ -48,48 +50,14 @@ export function useWorkflowState() {
 		const selectedWorkflow = availableWorkflows.value.find(w => w.id === selectedWorkflowId.value);
 		if (!selectedWorkflow) return;
 
-		const phaseIndex = phases.findIndex(p => p.id === selectedPhaseId.value);
-		if (phaseIndex === -1) return;
-
-		const phase = phases[phaseIndex];
-		if (!phase) return;
+		const title = customWorkflowLabel.value || selectedWorkflow.name;
+		const updatedPhases = addWorkflow(phases, selectedPhaseId.value, selectedWorkflowId.value, title);
 		
-		console.log('Found phase:', phase);
-		console.log('Current workflows in phase:', phase.workflows);
-
-		// Create new workflow link
-		const newWorkflowLink: WorkflowItem = {
-			id: generateWorkflowLinkId(),
-			workflowId: selectedWorkflowId.value,
-			title: customWorkflowLabel.value || selectedWorkflow.name,
-			order: phase.workflows.length
-		};
-
-		console.log('New workflow link:', newWorkflowLink);
-
-		// Create new array to trigger reactivity
-		const updatedWorkflows = [...phase.workflows, newWorkflowLink];
+		if (!updatedPhases) return;
 		
-		// Create updated phases array with explicit typing
-		const updatedPhases = [...phases];
-		updatedPhases[phaseIndex] = {
-			id: phase.id,
-			title: phase.title,
-			color: phase.color,
-			workflows: updatedWorkflows
-		};
-		
-		console.log('Updated workflows in phase:', updatedPhases[phaseIndex].workflows);
-		
-		// Update phases through callback
 		onPhasesUpdate(updatedPhases);
-		
-		// Force Vue to re-render by triggering reactivity
 		await nextTick();
-		
-		// Save changes
 		await onSave();
-		
 		closeAddWorkflowModal();
 	}
 
@@ -100,37 +68,10 @@ export function useWorkflowState() {
 		onPhasesUpdate: (phases: Phase[]) => void,
 		onSave: () => Promise<void>
 	) {
-		const phaseIndex = phases.findIndex(p => p.id === phaseId);
-		if (phaseIndex === -1) return;
+		const updatedPhases = removeWorkflowFromPhase(phases, phaseId, workflowLinkId);
+		if (!updatedPhases) return;
 
-		const phase = phases[phaseIndex];
-		if (!phase) return;
-		
-		const workflowIndex = phase.workflows.findIndex(w => w.id === workflowLinkId);
-		if (workflowIndex === -1) return;
-
-		// Remove workflow from phase
-		const updatedWorkflows = [...phase.workflows];
-		updatedWorkflows.splice(workflowIndex, 1);
-		
-		// Update order for remaining workflows
-		updatedWorkflows.forEach((workflow, idx) => {
-			workflow.order = idx;
-		});
-
-		// Create updated phases array with explicit typing
-		const updatedPhases = [...phases];
-		updatedPhases[phaseIndex] = {
-			id: phase.id,
-			title: phase.title,
-			color: phase.color,
-			workflows: updatedWorkflows
-		};
-
-		// Update phases through callback
 		onPhasesUpdate(updatedPhases);
-		
-		// Save changes
 		await onSave();
 	}
 
@@ -141,37 +82,15 @@ export function useWorkflowState() {
 		onPhasesUpdate: (phases: Phase[]) => void,
 		onSave: () => Promise<void>
 	) {
-		const phaseIndex = phases.findIndex(p => p.id === phaseId);
-		if (phaseIndex === -1) return;
+		const updatedPhases = reorderWorkflows(phases, phaseId);
+		if (!updatedPhases) return;
 
-		const phase = phases[phaseIndex];
-		if (!phase) return;
-		
-		// Update order for all workflows in the phase
-		const updatedWorkflows = phase.workflows.map((workflow, index) => ({
-			...workflow,
-			order: index
-		}));
-
-		// Create updated phases array with explicit typing
-		const updatedPhases = [...phases];
-		updatedPhases[phaseIndex] = {
-			id: phase.id,
-			title: phase.title,
-			color: phase.color,
-			workflows: updatedWorkflows
-		};
-
-		// Update phases through callback
 		onPhasesUpdate(updatedPhases);
-		
-		// Save changes
 		await onSave();
 	}
 
 	function getPhaseTitle(phases: Phase[], phaseId: string | null): string {
-		const phase = phases.find(p => p.id === phaseId);
-		return phase?.title || 'Unknown Phase';
+		return getPhaseTitleUtil(phases, phaseId);
 	}
 
 	function openWorkflow(workflowId: string) {

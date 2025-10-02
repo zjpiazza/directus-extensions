@@ -49,7 +49,7 @@
 			:phase-title="getPhaseTitle(selectedPhaseId)"
 			:available-workflows="availableWorkflows"
 			@close="closeAddWorkflowModal"
-			@add-workflow="handleAddWorkflow"
+			@add-workflow="addWorkflowToPhase"
 		/>
 	</div>
 </template>
@@ -138,7 +138,7 @@ const {
 	editSeparatorText,
 	openAddWorkflowModal,
 	closeAddWorkflowModal,
-	handleAddWorkflow,
+	addWorkflowToPhase,
 	removeWorkflow,
 	openWorkflow,
 	onWorkflowReorder,
@@ -153,7 +153,7 @@ const {
 	zoomOut,
 	
 	// Initialization
-	initialize
+	initializeData
 } = useProcessMapEditor(props, emit);
 
 // Custom header logic
@@ -192,8 +192,8 @@ onMounted(async () => {
 			(headerBar as HTMLElement).style.display = 'none';
 		}
 		
-		// Initialize using the composable
-		await initialize();
+	// Initialize using the composable
+	await initializeData();
 		
 		// Add a small delay to ensure everything is properly initialized
 		await nextTick();
@@ -312,4 +312,10 @@ onMounted(async () => {
 :deep(.private-view .header-bar) {
 	display: none !important;
 }
+</style>
+<style>
+/* Import the necessary styles for Vue Flow to work */
+@import '@vue-flow/core/dist/style.css';
+@import '@vue-flow/core/dist/theme-default.css';
+@import '@vue-flow/controls/dist/style.css';
 </style>

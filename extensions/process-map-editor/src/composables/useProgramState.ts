@@ -13,19 +13,23 @@ export function useProgramState() {
 	
 	// Computed properties
 	const selectedProgramName = computed(() => {
-		if (!selectedProgram.value) return '';
+		if (!selectedProgram.value) return null;
 		const program = programs.value.find(p => p.id === selectedProgram.value);
-		return program?.name || '';
+		return program?.name ?? null;
 	});
 
 	// Methods
 	function setPrograms(newPrograms: Program[]) {
-		programs.value = newPrograms;
+		// Filter out invalid programs (must have id and name)
+		const validPrograms = newPrograms.filter(p => p && p.id && p.name);
+		programs.value = validPrograms;
+		
+		console.log('Setting programs:', validPrograms.length, 'valid programs from', newPrograms.length, 'total');
 		
 		// Set default program if available and none is selected
-		if (newPrograms.length > 0 && !selectedProgram.value && newPrograms[0]) {
-			selectedProgram.value = newPrograms[0].id;
-			console.log('Set default program:', selectedProgram.value, 'Program name:', newPrograms[0].name);
+		if (validPrograms.length > 0 && !selectedProgram.value && validPrograms[0]) {
+			selectedProgram.value = validPrograms[0].id;
+			console.log('Set default program:', selectedProgram.value, 'Program name:', validPrograms[0].name);
 		}
 	}
 

@@ -27,6 +27,7 @@
 			:min-zoom="0.1"
 			:max-zoom="4"
 			:fit-view-on-init="true"
+			:fit-view-on-init-options="{ padding: 0.2, maxZoom: 1.5, duration: 200 }"
 			:default-edge-options="{ type: 'step', animated: true }"
 			:class="['vue-flow-canvas', `zoom-level-${Math.round(currentZoom * 10)}`]"
 			@nodes-initialized="onNodesInitialized"
@@ -139,7 +140,8 @@ function editSeparatorText() {
 <style scoped>
 .canvas-container {
 	flex: 1;
-	height: 60vh;
+	height: calc(100vh - 160px);
+	min-height: 600px;
 	position: relative;
 	border-bottom: 2px solid var(--theme--border-color, #e5e7eb);
 }

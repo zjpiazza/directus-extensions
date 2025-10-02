@@ -13,10 +13,8 @@ export function useNodeUpdateHandlers(options: NodeUpdateHandlerOptions) {
   const { selectedNode, flowNodes, flowEdges, updateNodeData, updateField } = options;
 
   const persistFlowData = () => {
-    updateField('data', {
-      nodes: flowNodes.value,
-      edges: flowEdges.value,
-    });
+    updateField('nodes', flowNodes.value);
+    updateField('edges', flowEdges.value);
   };
 
   const updateFormCollection = (collectionName: string) => {

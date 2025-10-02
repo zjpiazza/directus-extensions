@@ -127,10 +127,8 @@ export function useEdgeEvents(options: EdgeEventOptions) {
     // Immediately update the field to persist the change
     nextTick(() => {
       debugLog('💾 Persisting edges to field');
-      updateField('data', {
-        nodes: flowNodes.value,
-        edges: flowEdges.value,
-      });
+      updateField('nodes', flowNodes.value);
+      updateField('edges', flowEdges.value);
       debugLog('💾 Field updated');
     });
   };
@@ -185,10 +183,8 @@ export function useEdgeEvents(options: EdgeEventOptions) {
 
         // Immediately update the field to persist the change
         nextTick(() => {
-          updateField('data', {
-            nodes: flowNodes.value,
-            edges: flowEdges.value,
-          });
+          updateField('nodes', flowNodes.value);
+          updateField('edges', flowEdges.value);
         });
       }
     }
@@ -212,10 +208,8 @@ export function useEdgeEvents(options: EdgeEventOptions) {
       selectedEdge.value = null;
 
       // Update the field to persist the changes
-      updateField('data', {
-        nodes: flowNodes.value,
-        edges: flowEdges.value,
-      });
+      updateField('nodes', flowNodes.value);
+      updateField('edges', flowEdges.value);
     }
   };
 

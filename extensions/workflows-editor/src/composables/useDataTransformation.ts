@@ -133,7 +133,9 @@ export function useDataTransformation() {
     currentEdges: Edge[]
   ): boolean => {
     try {
-      const original = parseFlowData(originalData);
+      const nodes = originalData?.nodes || originalData?.data?.nodes || [];
+      const edges = originalData?.edges || originalData?.data?.edges || [];
+      const original = { nodes, edges };
       const current = { nodes: currentNodes, edges: currentEdges };
       const { nodesMatch, edgesMatch } = compareFlowData(current, original);
       return !nodesMatch || !edgesMatch;

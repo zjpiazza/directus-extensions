@@ -42,10 +42,29 @@ export function usePersistence(
     emit: (event: 'update:modelValue', value: Record<string, any>) => void,
     saving: boolean
   ) => {
-    if (saving) return;
+    console.log('🔧 updateField called:', {
+      fieldKey,
+      valueType: Array.isArray(value) ? 'array' : typeof value,
+      valueLength: Array.isArray(value) ? value.length : 'N/A',
+      firstItem: Array.isArray(value) ? value[0] : 'N/A',
+      saving,
+      modelValue,
+    });
+    
+    if (saving) {
+      console.log('⚠️ updateField: skipping because saving=true');
+      return;
+    }
 
     const newEdits = { ...(modelValue || {}) };
     newEdits[fieldKey] = value;
+    
+    console.log('📤 updateField: emitting update:modelValue:', {
+      fieldKey,
+      newEditsKeys: Object.keys(newEdits),
+      nodesCount: newEdits.nodes?.length,
+      edgesCount: newEdits.edges?.length,
+    });
     
     emit('update:modelValue', newEdits);
     lastEmitVersion.value = JSON.stringify(newEdits);
@@ -65,16 +84,12 @@ export function usePersistence(
       localSaving.value = true;
       updatePageCounts();
       
-      const flowData: WorkflowPersistenceData = { 
-        nodes: flowNodes.value, 
+      const payload: Record<string, any> = { 
+        nodes: flowNodes.value,
         edges: flowEdges.value,
         pages: pages.value,
         currentPageId: currentPageId.value,
         pageViewports: pageViewports.value
-      };
-      
-      const payload: Record<string, any> = { 
-        data: flowData
       };
 
       const nameValue = flowName?.trim() || modelValue.name || item?.name || 'Untitled Workflow';
@@ -92,9 +107,33 @@ export function usePersistence(
         ? `/items/${options.collection}`
         : `/items/${options.collection}/${effectiveId}`;
 
+      console.log('💾 SAVE PAYLOAD:', {
+        endpoint,
+        isCreate,
+        payload: {
+          ...payload,
+          nodesCount: payload.nodes?.length,
+          edgesCount: payload.edges?.length,
+          pagesCount: payload.pages?.length,
+        }
+      });
+      
+      console.log('💾 FULL NODE DATA (stringified):', JSON.stringify(payload.nodes.map((n: any) => ({
+        id: n.id,
+        type: n.type,
+        position: n.position,
+        label: n.data?.label
+      })), null, 2));
+
       const response = isCreate
         ? await options.api.post(endpoint, payload)
         : await options.api.patch(endpoint, payload);
+
+      console.log('✅ SAVE RESPONSE:', {
+        savedId: response?.data?.data?.id || response?.data?.id,
+        responseNodes: response?.data?.data?.nodes?.length || response?.data?.nodes?.length,
+        responseEdges: response?.data?.data?.edges?.length || response?.data?.edges?.length,
+      });
 
       const saved = response?.data?.data || response?.data;
       
@@ -140,19 +179,15 @@ export function usePersistence(
     try {
       localSaving.value = true;
       
-      const flowData: WorkflowPersistenceData = { 
-        nodes: flowNodes.value, 
-        edges: flowEdges.value,
-        pages: pages.value,
-        currentPageId: currentPageId.value,
-        pageViewports: pageViewports.value
-      };
-      
       const originalName = flowName?.trim() || item?.name || 'Untitled Workflow';
       const cloneName = `${originalName} (Copy)`;
       
       const payload: Record<string, any> = {
-        data: flowData,
+        nodes: flowNodes.value,
+        edges: flowEdges.value,
+        pages: pages.value,
+        currentPageId: currentPageId.value,
+        pageViewports: pageViewports.value,
         name: cloneName,
         description: item?.description || modelValue?.description || ''
       };
@@ -179,7 +214,7 @@ export function usePersistence(
   };
 
   const loadFlowData = (
-    data: any,
+    item: any,
     selectedNode: Ref<Node | null>,
     selectedEdge: Ref<Edge | null>,
     selectedNodes: Ref<Set<string>>,
@@ -194,11 +229,26 @@ export function usePersistence(
     selectedNode.value = null;
     selectedEdge.value = null;
     
-    if (data) {
+    if (item) {
       try {
-        const flowData = typeof data === 'string' ? JSON.parse(data) : data;
+        console.log('📥 LOADING DATA FROM ITEM:', {
+          hasNodes: !!item.nodes,
+          hasEdges: !!item.edges,
+          hasPages: !!item.pages,
+          hasCurrentPageId: !!item.currentPageId,
+          hasPageViewports: !!item.pageViewports,
+          hasData: !!item.data,
+          nodesCount: item.nodes?.length || item.data?.nodes?.length,
+          edgesCount: item.edges?.length || item.data?.edges?.length,
+        });
+        
+        const nodes = item.nodes || item.data?.nodes || [];
+        const edges = item.edges || item.data?.edges || [];
+        const itemPages = item.pages || item.data?.pages || [];
+        const itemCurrentPageId = item.currentPageId || item.data?.currentPageId || 'root';
+        const itemPageViewports = item.pageViewports || item.data?.pageViewports || {};
 
-        const validatedNodes = (flowData.nodes || []).map((node: Node, index: number) => {
+        const validatedNodes = nodes.map((node: Node, index: number) => {
           const cleanClass = (typeof node.class === 'string' && node.class) 
             ? node.class.replace(/\s*multi-selected\s*/g, ' ').trim()
             : '';
@@ -220,7 +270,7 @@ export function usePersistence(
         });
 
         flowNodes.value = validatedNodes;
-        flowEdges.value = (flowData.edges || []).map((edge: Edge) => ({
+        flowEdges.value = edges.map((edge: Edge) => ({
           ...edge,
           id: edge.id || `edge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type: edge.type || 'step',
@@ -230,9 +280,9 @@ export function usePersistence(
           data: { label: edge.data?.label || '', ...edge.data },
         }));
         
-        pages.value = flowData.pages || [];
-        currentPageId.value = flowData.currentPageId || 'root';
-        pageViewports.value = flowData.pageViewports || {};
+        pages.value = itemPages;
+        currentPageId.value = itemCurrentPageId;
+        pageViewports.value = itemPageViewports;
         
         updatePageCounts();
 

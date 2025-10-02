@@ -26,11 +26,9 @@ export function useDataWatchers({
   selectedEdge,
   
   // Utility functions
-  parseFlowData,
   validateAndNormalizeNodes,
   validateAndNormalizeEdges,
   updatePageCounts,
-  createDataPreview,
   createFlowDataStructure,
   compareFlowData,
   updateField,
@@ -62,11 +60,9 @@ export function useDataWatchers({
   selectedEdge: Ref<any>;
   
   // Utility functions
-  parseFlowData: (data: any) => any;
   validateAndNormalizeNodes: (nodes: any[], handler: any) => Node[];
   validateAndNormalizeEdges: (edges: any[]) => Edge[];
   updatePageCounts: () => void;
-  createDataPreview: (data: any, length: number) => any;
   createFlowDataStructure: (nodes: Node[], edges: Edge[], pages: Page[], currentPageId: string, pageViewports: any) => any;
   compareFlowData: (current: any, loaded: any) => { nodesMatch: boolean; edgesMatch: boolean };
   updateField: (field: string, value: any) => void;
@@ -82,12 +78,28 @@ export function useDataWatchers({
 }) {
   // Watch for props.item changes to load workflow data
   watch(() => itemData.value, (newItem) => {
-    const newData = newItem?.data;
+    const nodes = newItem?.nodes || newItem?.data?.nodes;
+    const edges = newItem?.edges || newItem?.data?.edges;
+    const itemPages = newItem?.pages || newItem?.data?.pages;
+    const itemCurrentPageId = newItem?.currentPageId || newItem?.data?.currentPageId;
+    const itemPageViewports = newItem?.pageViewports || newItem?.data?.pageViewports;
+    
+    const hasData = !!(nodes || edges || itemPages);
+    
     console.log('🔄 props.item changed, loading data:', {
       hasItem: !!newItem,
-      hasData: !!newData,
-      dataType: typeof newData,
-      dataPreview: createDataPreview(newData, 200),
+      hasNodes: !!nodes,
+      hasEdges: !!edges,
+      hasPages: !!itemPages,
+      hasData,
+      nodesCount: nodes?.length || 0,
+      edgesCount: edges?.length || 0,
+      pagesCount: itemPages?.length || 0,
+      newItemKeys: Object.keys(newItem || {}),
+      hasNewFormatNodes: !!newItem?.nodes,
+      hasOldFormatNodes: !!newItem?.data?.nodes,
+      firstNodeFromNew: newItem?.nodes?.[0]?.position,
+      firstNodeFromOld: newItem?.data?.nodes?.[0]?.position,
     });
     
     // Set flag to suppress emits during load
@@ -99,9 +111,15 @@ export function useDataWatchers({
     selectedNode.value = null;
     selectedEdge.value = null;
     
-    if (newData) {
+    if (hasData) {
       try {
-        const flowData = parseFlowData(newData);
+        const flowData = {
+          nodes: nodes || [],
+          edges: edges || [],
+          pages: itemPages || [],
+          currentPageId: itemCurrentPageId || 'root',
+          pageViewports: itemPageViewports || {}
+        };
         
         console.log('📥 Loading flow data:', {
           nodesCount: flowData.nodes?.length,
@@ -179,7 +197,9 @@ export function useDataWatchers({
       pageViewports.value
     );
     
-    const loadedData = itemData.value?.data;
+    const loadedNodes = itemData.value?.nodes || itemData.value?.data?.nodes;
+    const loadedEdges = itemData.value?.edges || itemData.value?.data?.edges;
+    const loadedData = loadedNodes || loadedEdges ? { nodes: loadedNodes, edges: loadedEdges } : itemData.value?.data;
     
     // If we have loaded data, compare it with current state
     if (loadedData && typeof loadedData === 'object') {
@@ -216,7 +236,11 @@ export function useDataWatchers({
       });
     }
     
-    updateField('data', currentFlowData);
+    updateField('nodes', currentFlowData.nodes);
+    updateField('edges', currentFlowData.edges);
+    updateField('pages', currentFlowData.pages);
+    updateField('currentPageId', currentFlowData.currentPageId);
+    updateField('pageViewports', currentFlowData.pageViewports);
   }, { deep: true });
 
   // Watch for changes in multi-selection to update visual classes

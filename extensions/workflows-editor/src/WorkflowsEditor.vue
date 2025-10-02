@@ -189,14 +189,18 @@ const {
 
 // Update edge data and persist changes
 const updateEdgeData = () => {
-  // Update the field to persist the changes
-  boundUpdateField('data', createFlowDataStructure(
+  const flowData = createFlowDataStructure(
     flowNodes.value,
     flowEdges.value, 
     pages.value,
     currentPageId.value,
     pageViewports.value
-  ));
+  );
+  boundUpdateField('nodes', flowData.nodes);
+  boundUpdateField('edges', flowData.edges);
+  boundUpdateField('pages', flowData.pages);
+  boundUpdateField('currentPageId', flowData.currentPageId);
+  boundUpdateField('pageViewports', flowData.pageViewports);
 };
 
 // selectedEdge, selectedNodes, isMultiSelecting, isLoadingInitialData are now provided by composables
@@ -221,7 +225,7 @@ watch(() => props.mode, (newMode) => {
 }, { immediate: true });
 
 // Vue Flow composable - moved here to be available for other composables
-const { project, fitView, updateEdge, addEdges, snapToGrid, getViewport, setViewport } = useVueFlow();
+const { project, fitView, updateEdge, addEdges, snapToGrid, getViewport, setViewport, getNodes, getEdges } = useVueFlow();
 
 // Initialize follow mode composable
 const {
@@ -333,7 +337,7 @@ const hasChanges = computed(() => {
     return true;
   }
   // Fallback: compare current flow with original item data using data transformation
-  if (hasDataDiverged(props.item?.data, flowNodes.value, flowEdges.value)) {
+  if (hasDataDiverged(props.item, flowNodes.value, flowEdges.value)) {
     console.log('✅ hasChanges: true (data diverged from original)');
     return true;
   }
@@ -487,9 +491,8 @@ const {
     console.log('🧹 Clearing all edits after successful save');
     emit('update:modelValue', {});
     
-    // Emit refresh to reload the saved data from database
-    console.log('🔄 Emitting refresh to parent to reload saved data');
-    emit('refresh');
+    // NO refresh needed - in-memory state is already correct after save
+    // Emitting refresh causes a race condition where stale data gets loaded
   },
   onError: (e) => {
     debugLog('persistence error', e?.response || e);
@@ -552,6 +555,8 @@ const {
   pages,
   currentPageId,
   pageViewports,
+  getNodes,
+  getEdges,
 });
 
 // Initialize edge events composable
@@ -807,7 +812,13 @@ const showDiff = () => {
   );
   
   // Server state
-  const serverState = props.item?.data;
+  const serverState = {
+    nodes: props.item?.nodes || props.item?.data?.nodes || [],
+    edges: props.item?.edges || props.item?.data?.edges || [],
+    pages: props.item?.pages || props.item?.data?.pages || [],
+    currentPageId: props.item?.currentPageId || props.item?.data?.currentPageId || 'root',
+    pageViewports: props.item?.pageViewports || props.item?.data?.pageViewports || {}
+  };
   
   console.log('📊 Current Workflow State:', {
     nodes: currentState.nodes.length,
@@ -887,11 +898,9 @@ useDataWatchers({
   selectedEdge,
   
   // Utility functions
-  parseFlowData,
   validateAndNormalizeNodes,
   validateAndNormalizeEdges,
   updatePageCounts,
-  createDataPreview,
   createFlowDataStructure,
   compareFlowData,
   updateField: boundUpdateField,

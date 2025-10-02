@@ -1,4 +1,4 @@
-import { type Ref } from 'vue';
+import { type Ref, type ComputedRef } from 'vue';
 import type { Node, Edge } from '@vue-flow/core';
 
 interface NodeEventOptions {
@@ -17,6 +17,9 @@ interface NodeEventOptions {
   pages?: Ref<any[]>;
   currentPageId?: Ref<string>;
   pageViewports?: Ref<Record<string, any>>;
+  // Vue Flow getters - these are ComputedRefs that directly contain the arrays
+  getNodes?: ComputedRef<Node[]>;
+  getEdges?: ComputedRef<Edge[]>;
 }
 
 /**
@@ -39,6 +42,8 @@ export function useNodeEvents(options: NodeEventOptions) {
     pages,
     currentPageId,
     pageViewports,
+    getNodes,
+    getEdges,
   } = options;
 
   /**
@@ -85,25 +90,35 @@ export function useNodeEvents(options: NodeEventOptions) {
    */
   const onNodeDragStop = () => {
     debugLog('Node drag stopped, marking as dirty');
-    console.log('🔍 Nodes after drag stop:', JSON.stringify(flowNodes.value.map(n => ({ id: n.id, position: n.position })), null, 2));
     
-    const flowData: any = {
-      nodes: flowNodes.value,
-      edges: flowEdges.value,
-    };
+    // Get current nodes and edges from Vue Flow (includes updated positions)
+    // getNodes and getEdges are ComputedRefs, access them with .value
+    const currentNodes = getNodes?.value || flowNodes.value;
+    const currentEdges = getEdges?.value || flowEdges.value;
     
-    // Include page data if available
+    console.log('🔍 Nodes after drag stop:', JSON.stringify(currentNodes.map((n: Node) => ({ id: n.id, position: n.position })), null, 2));
+    
+    // Deep clone to ensure Vue reactivity detects the change
+    const nodesClone = JSON.parse(JSON.stringify(currentNodes));
+    const edgesClone = JSON.parse(JSON.stringify(currentEdges));
+    
+    // Update the reactive refs first (this updates the local state)
+    flowNodes.value = nodesClone;
+    flowEdges.value = edgesClone;
+    
+    // Then persist to database
+    updateField('nodes', nodesClone);
+    updateField('edges', edgesClone);
+    
     if (pages) {
-      flowData.pages = pages.value;
+      updateField('pages', JSON.parse(JSON.stringify(pages.value)));
     }
     if (currentPageId) {
-      flowData.currentPageId = currentPageId.value;
+      updateField('currentPageId', currentPageId.value);
     }
     if (pageViewports) {
-      flowData.pageViewports = pageViewports.value;
+      updateField('pageViewports', JSON.parse(JSON.stringify(pageViewports.value)));
     }
-    
-    updateField('data', JSON.parse(JSON.stringify(flowData)));
   };
 
   /**
@@ -118,11 +133,8 @@ export function useNodeEvents(options: NodeEventOptions) {
       );
       selectedNode.value = null;
 
-      // Update the field to persist the changes
-      updateField('data', {
-        nodes: flowNodes.value,
-        edges: flowEdges.value,
-      });
+      updateField('nodes', flowNodes.value);
+      updateField('edges', flowEdges.value);
     }
   };
 

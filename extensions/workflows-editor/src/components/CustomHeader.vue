@@ -30,6 +30,7 @@ const emit = defineEmits<{
   'update-mode': [mode: 'edit' | 'view'];
   'toggle-follow-mode': [enabled: boolean];
   'toggle-descriptions': [enabled: boolean];
+  'show-diff': [];
 }>();
 
 const handleUpdateFlowName = (name: string) => {
@@ -167,6 +168,16 @@ const breadcrumbs = computed(() => {
             </div>
           </button>
         </div>
+
+        <button
+          class="btn btn-secondary"
+          data-test="show-diff-btn"
+          @click="$emit('show-diff')"
+          title="Show diff between current state and server state"
+        >
+          <v-icon name="compare_arrows" />
+          Show Diff
+        </button>
 
         <button
           v-if="!props.isNew && canEdit"

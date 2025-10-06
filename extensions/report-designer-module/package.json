@@ -1,0 +1,36 @@
+{
+	"name": "report-designer-module",
+	"description": "Please enter a description for your extension",
+	"icon": "extension",
+	"version": "1.0.0",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-module"
+	],
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"directus:extension": {
+		"type": "module",
+		"path": "dist/index.js",
+		"source": "src/index.ts",
+		"host": "^10.10.0"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"validate": "directus-extension validate"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "16.0.1",
+		"typescript": "^5.9.2",
+		"vue": "^3.5.22"
+	},
+	"dependencies": {
+		"@boldreports/javascript-reporting-controls": "^11.1.11",
+		"jquery": "^3.7.1"
+	}
+}

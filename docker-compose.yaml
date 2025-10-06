@@ -59,7 +59,7 @@ services:
       ADMIN_PASSWORD: "t3chn0lust"
 
       PUBLIC_URL: "http://localhost:8055"
-      CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC: "'self' http://192.168.1.225:8090"
+      CONTENT_SECURITY_POLICY_DIRECTIVES__CONNECT_SRC: "'self' http://192.168.1.225:8090 http://localhost:8090"
       CONTENT_SECURITY_POLICY_DIRECTIVES__SCRIPT_SRC_ELEM: "'self' 'unsafe-eval' https://cdn.boldreports.com https://cdn.syncfusion.com"
       CONTENT_SECURITY_POLICY_DIRECTIVES__STYLE_SRC_ELEM: "'self' 'unsafe-inline' https://cdn.boldreports.com https://cdn.syncfusion.com https://fonts.googleapis.com"
       CONTENT_SECURITY_POLICY_DIRECTIVES__FONT_SRC: "'self' data: https://fonts.gstatic.com"

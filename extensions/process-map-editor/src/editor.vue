@@ -33,6 +33,7 @@
 				:class="['vue-flow-canvas', `zoom-level-${Math.round(currentZoom * 10)}`]"
 				@nodes-initialized="onNodesInitialized"
 				@move="onViewportMove"
+				@node-click="onNodeClick"
 			>
 				<!-- Custom Node Templates -->
 				<template #node-phase="nodeProps">
@@ -238,6 +239,47 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- Edit Node Modal -->
+		<div v-if="showNodeEditModal" class="modal-overlay" @click="closeNodeEditModal">
+			<div class="modal-content" @click.stop>
+				<div class="modal-header">
+					<h3>Edit Node</h3>
+					<button @click="closeNodeEditModal" class="modal-close-btn">
+						<v-icon name="close" />
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="form-field">
+						<label>Custom Label (optional):</label>
+						<v-input
+							v-model="nodeCustomLabel"
+							placeholder="Enter custom label or leave empty to use default"
+						/>
+					</div>
+					<div class="form-field">
+						<label>Description (optional):</label>
+						<textarea
+							v-model="nodeDescription"
+							class="node-description-input"
+							placeholder="Enter node description"
+							rows="4"
+						></textarea>
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button @click="closeNodeEditModal" class="btn-secondary">
+						Cancel
+					</button>
+					<button 
+						@click="saveNodeCustomization"
+						class="btn-primary"
+					>
+						Save
+					</button>
+				</div>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -262,11 +304,6 @@ interface Props {
 	initialValues?: Record<string, any>;
 	loading?: boolean;
 	disabled?: boolean;
-	// Core Directus interface props
-	value?: Record<string, any>;
-	field?: string;
-	width?: string;
-	type?: string;
 	// Editor-specific props
 	isNew?: boolean;
 	edits?: Record<string, any>;
@@ -282,12 +319,11 @@ const props = withDefaults(defineProps<Props>(), {
 	initialValues: () => ({}),
 	loading: false,
 	disabled: false,
-	value: () => ({}),
+	edits: () => ({}),
 });
 
-// Emit the correct Directus interface events
+// Emit the correct Directus editor events
 const emit = defineEmits<{
-	input: [value: Record<string, any>];
 	'update:edits': [value: Record<string, any>];
 	save: [];
 	refresh: [];
@@ -346,12 +382,21 @@ const workflowLinks = ref<Array<any>>([]);
 // Map program ID -> { phaseId -> workflows[] }
 const programWorkflowLinks = ref<Record<string, Record<string, any[]>>>({});
 
+// Node descriptions data - Map program ID -> { nodeId -> { description, customLabel } }
+const programNodeDescriptions = ref<Record<string, Record<string, { description?: string; customLabel?: string }>>>({});
+
 // Workflow management
 const showAddWorkflowModal = ref(false);
 const selectedPhaseId = ref<string | null>(null);
 const selectedWorkflowId = ref<string | null>(null);
 const customWorkflowLabel = ref('');
 const availableWorkflows = ref<Array<{ id: string; name: string }>>([]);
+
+// Node customization
+const showNodeEditModal = ref(false);
+const selectedNodeId = ref<string | null>(null);
+const nodeCustomLabel = ref('');
+const nodeDescription = ref('');
 
 // Separator text state
 const separatorText = ref('SIGNED SERVICE PLAN')
@@ -416,16 +461,21 @@ async function freezeCurrentState() {
 			selectedProgram: selectedProgram.value,
 			separatorText: separatorText.value,
 			programWorkflowLinks: programWorkflowLinks.value,
+			programNodeDescriptions: programNodeDescriptions.value,
 			viewport: viewport,
 		};
 
-		// Emit the input event to keep Directus form in sync
-		emit('input', completeState);
+		// Emit the update:edits event for Directus editor persistence
+		const newEdits = { ...(props.edits || {}) };
+		newEdits.state = completeState;
+		emit('update:edits', newEdits);
 
-		console.log('Process map state saved successfully via emit');
+		await api.patch(`/items/${props.collection}`, { 
+			state: completeState 
+		});
 		
 	} catch (error) {
-		console.error('Failed to save process map state:', error);
+		console.error('[SAVE] Failed to save process map state:', error);
 	} finally {
 		isSaving.value = false;
 	}
@@ -434,120 +484,86 @@ async function freezeCurrentState() {
 // Load saved state if it exists
 async function loadSavedState() {
 	try {
-		console.log('Loading saved state...');
-		console.log('Props value:', props.value);
-		console.log('Props item:', props.item);
-		
-		// Load from props.value (Directus standard)
-		if (props.value && Object.keys(props.value).length > 0) {
-			const savedData = props.value;
-			console.log('Loading from props.value:', savedData);
+		// First try to load from props.edits.state (pending changes)
+		if (props.edits?.state && Object.keys(props.edits.state).length > 0) {
+			const savedData = props.edits.state;
 			
-			if (savedData.nodes) {
-				console.log('Restoring saved nodes:', savedData.nodes);
-				flowNodes.value = savedData.nodes;
-			}
-			if (savedData.edges) {
-				console.log('Restoring saved edges:', savedData.edges);
-				flowEdges.value = savedData.edges;
-			}
-			if (savedData.selectedProgram) {
-				selectedProgram.value = savedData.selectedProgram;
-			}
-			if (savedData.separatorText) {
-				separatorText.value = savedData.separatorText;
-			}
+			if (savedData.nodes) flowNodes.value = savedData.nodes;
+			if (savedData.edges) flowEdges.value = savedData.edges;
+			if (savedData.selectedProgram) selectedProgram.value = savedData.selectedProgram;
+			if (savedData.separatorText) separatorText.value = savedData.separatorText;
 			
 			// Load workflow links from saved state
 			if (savedData.programWorkflowLinks) {
-				console.log('LOADING programWorkflowLinks from saved state:', JSON.stringify(savedData.programWorkflowLinks, null, 2));
 				programWorkflowLinks.value = savedData.programWorkflowLinks;
-				console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 				applyPhasesForCurrentProgram();
 			} else if (savedData.workflowLinks) {
-				// Backward compatibility: single set of workflow links not per program
-				console.log('LOADING workflowLinks (backward compatibility):', JSON.stringify(savedData.workflowLinks, null, 2));
+				// Backward compatibility
 				programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
-				console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 				applyPhasesForCurrentProgram();
 			} else if (savedData.phases) {
-				// Backward compatibility: phases array
-				console.log('LOADING phases (backward compatibility):', savedData.phases);
 				phases.value = savedData.phases;
 				syncProgramFromPhases();
 			} else {
-				// Initialize with default phases if no saved data
-				console.log('NO SAVED DATA - initializing default phases');
 				initializeDefaultPhases();
 				syncProgramFromPhases();
 			}
 			
-			if (savedData.viewport) {
-				setViewport(savedData.viewport);
+			if (savedData.programNodeDescriptions) {
+				programNodeDescriptions.value = savedData.programNodeDescriptions;
+				applyNodeCustomizations();
 			}
-			console.log('Saved state loaded from props.value');
+			
+			if (savedData.viewport) setViewport(savedData.viewport);
+			console.log('[LOAD] Loaded from props.edits.state');
 			return;
 		}
 
-		// Fallback: try to load from item data - always look for "state" field
+		// Fallback: try to load from item data
 		if (props.item && Object.keys(props.item).length > 0) {
 			const savedData = props.item.state;
-			console.log('Loading from item.state:', savedData);
+			console.log('[LOAD] Loading from item.state:', savedData ? 'found' : 'not found');
 			
 			if (savedData && typeof savedData === 'object') {
-				if (savedData.nodes) {
-					console.log('Restoring saved nodes from item:', savedData.nodes);
-					flowNodes.value = savedData.nodes;
-				}
-				if (savedData.edges) {
-					console.log('Restoring saved edges from item:', savedData.edges);
-					flowEdges.value = savedData.edges;
-				}
-				if (savedData.selectedProgram) {
-					selectedProgram.value = savedData.selectedProgram;
-				}
-				if (savedData.separatorText) {
-					separatorText.value = savedData.separatorText;
-				}
+				if (savedData.nodes) flowNodes.value = savedData.nodes;
+				if (savedData.edges) flowEdges.value = savedData.edges;
+				if (savedData.selectedProgram) selectedProgram.value = savedData.selectedProgram;
+				if (savedData.separatorText) separatorText.value = savedData.separatorText;
 				
 				// Load workflow links from saved state
 				if (savedData.programWorkflowLinks) {
-					console.log('LOADING programWorkflowLinks from item.state:', JSON.stringify(savedData.programWorkflowLinks, null, 2));
 					programWorkflowLinks.value = savedData.programWorkflowLinks;
-					console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 					applyPhasesForCurrentProgram();
 				} else if (savedData.workflowLinks) {
-					// Backward compatibility: single set of workflow links not per program
-					console.log('LOADING workflowLinks from item.state (backward compatibility):', JSON.stringify(savedData.workflowLinks, null, 2));
 					programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
-					console.log('LOADED programWorkflowLinks.value:', JSON.stringify(programWorkflowLinks.value, null, 2));
 					applyPhasesForCurrentProgram();
 				} else if (savedData.phases) {
-					console.log('LOADING phases from item.state (backward compatibility):', savedData.phases);
 					phases.value = savedData.phases;
 					syncProgramFromPhases();
 				} else {
-					console.log('NO SAVED DATA in item.state - initializing default phases');
 					initializeDefaultPhases();
 					syncProgramFromPhases();
 				}
 				
-				if (savedData.viewport) {
-					setTimeout(() => {
-						setViewport(savedData.viewport);
-					}, 100);
+				if (savedData.programNodeDescriptions) {
+					programNodeDescriptions.value = savedData.programNodeDescriptions;
+					applyNodeCustomizations();
 				}
-				console.log('Saved state loaded from item data');
+				
+				if (savedData.viewport) {
+					setTimeout(() => setViewport(savedData.viewport), 100);
+				}
+				console.log('[LOAD] Loaded from item.state');
 			} else {
-				console.log('No saved state found, initializing defaults');
+				console.log('[LOAD] No saved state, initializing defaults');
 				initializeDefaultPhases();
 			}
 		} else {
-			console.log('No saved state found, initializing defaults');
+			console.log('[LOAD] No item data, initializing defaults');
 			initializeDefaultPhases();
 		}
 	} catch (error) {
-		console.error('Failed to load saved state:', error);
+		console.error('[LOAD] Failed to load saved state:', error);
 		initializeDefaultPhases();
 	}
 }
@@ -558,19 +574,17 @@ async function fetchPrograms() {
 		const response = await api.get('/items/programs', {
 			params: {
 				fields: ['id', 'name'],
-				limit: -1, // Get all programs
+				limit: -1,
 			},
 		});
 		programs.value = response.data.data || [];
-		console.log('Fetched programs:', programs.value);
 		
 		// Set default program if available
 		if (programs.value.length > 0 && !selectedProgram.value && programs.value[0]) {
 			selectedProgram.value = programs.value[0].id;
-			console.log('Set default program:', selectedProgram.value, 'Program name:', programs.value[0].name);
 		}
 	} catch (error) {
-		console.error('Error fetching programs:', error);
+		console.error('[API] Error fetching programs:', error);
 		programs.value = [];
 	}
 }
@@ -578,19 +592,13 @@ async function fetchPrograms() {
 // Keep UI in sync when selected program changes externally (e.g., from props)
 watch(() => selectedProgram.value, async (newProgramId, oldProgramId) => {
 	if (newProgramId !== oldProgramId) {
-		console.log('Program changed from', oldProgramId, 'to', newProgramId);
-		console.log('BEFORE SWITCH - programWorkflowLinks:', JSON.stringify(programWorkflowLinks.value, null, 2));
-		
 		// Save current program state into map before switching
 		if (oldProgramId) {
-			console.log('Syncing old program', oldProgramId, 'with current phases:', phases.value.map(p => ({ id: p.id, count: p.workflows.length })));
 			syncProgramFromPhases(oldProgramId);
-			console.log('AFTER SYNC OLD - programWorkflowLinks:', JSON.stringify(programWorkflowLinks.value, null, 2));
 		}
 		// Apply phases for new program
 		await nextTick();
 		applyPhasesForCurrentProgram();
-		console.log('AFTER APPLYING NEW - programWorkflowLinks:', JSON.stringify(programWorkflowLinks.value, null, 2));
 		await nextTick();
 		// Persist selection + current state snapshot
 		await freezeCurrentState();
@@ -655,8 +663,9 @@ const flowEdges = ref<Edge[]>([
 	{ id: 'e6', source: 'decision-node', target: 'provide-node', type: 'step', sourceHandle: 'left', targetHandle: 'bottom', label: 'Yes', markerEnd: 'arrowclosed' }
 ]);
 
-// Watch for value changes (Directus standard)
-watch(() => props.value, (newVal) => {
+// Watch for edits changes (Directus editor standard)
+watch(() => props.edits?.state, (newVal) => {
+	console.log('[WATCH] props.edits.state changed:', newVal ? 'has data' : 'empty');
 	if (newVal && typeof newVal === 'object') {
 		if (newVal.nodes) flowNodes.value = newVal.nodes || [];
 		if (newVal.edges) flowEdges.value = newVal.edges || [];
@@ -671,24 +680,12 @@ watch(() => props.value, (newVal) => {
 	}
 }, { deep: true, immediate: true });
 
-// Draft state representing current editor data
-const draftState = computed(() => ({
-	nodes: flowNodes.value,
-	edges: flowEdges.value,
-	phases: phases.value,
-	selectedProgram: selectedProgram.value,
-	separatorText: separatorText.value,
-	programWorkflowLinks: programWorkflowLinks.value, // Add this line
-	viewport: getViewport() || { x: 0, y: 0, zoom: 1 }
-}));
-
-// Emit input event when draft state changes (Directus standard)
-watch(draftState, (val) => {
-	if (props.disabled) return; // don't emit if component disabled
-	
-	// Emit the input event for Directus form integration
-	emit('input', val);
-}, { deep: true });
+// Watch for save action from Directus
+watch(() => props.saving, (isSaving) => {
+	if (isSaving) {
+		console.log('[DIRECTUS] Main save triggered - current edits:', props.edits);
+	}
+});
 
 // Methods
 function onNodesInitialized() {
@@ -701,6 +698,53 @@ function onNodesInitialized() {
 function onViewportMove(event: { flowTransform: { x: number; y: number; zoom: number } }) {
 	// Update current zoom when viewport moves
 	currentZoom.value = event.flowTransform.zoom;
+}
+
+function onNodeClick(event: any) {
+	if (!isEditMode.value) return;
+	
+	const nodeId = event.node.id;
+	openNodeEditModal(nodeId);
+}
+
+function openNodeEditModal(nodeId: string) {
+	selectedNodeId.value = nodeId;
+	
+	const programKey = getProgramKey(selectedProgram.value);
+	const nodeCustomizations = programNodeDescriptions.value[programKey]?.[nodeId] || {};
+	
+	nodeCustomLabel.value = nodeCustomizations.customLabel || '';
+	nodeDescription.value = nodeCustomizations.description || '';
+	
+	showNodeEditModal.value = true;
+}
+
+function closeNodeEditModal() {
+	showNodeEditModal.value = false;
+	selectedNodeId.value = null;
+	nodeCustomLabel.value = '';
+	nodeDescription.value = '';
+}
+
+async function saveNodeCustomization() {
+	if (!selectedNodeId.value) return;
+	
+	const programKey = getProgramKey(selectedProgram.value);
+	
+	if (!programNodeDescriptions.value[programKey]) {
+		programNodeDescriptions.value[programKey] = {};
+	}
+	
+	programNodeDescriptions.value[programKey][selectedNodeId.value] = {
+		customLabel: nodeCustomLabel.value.trim() || undefined,
+		description: nodeDescription.value.trim() || undefined
+	};
+	
+	applyNodeCustomizations();
+	
+	await freezeCurrentState();
+	
+	closeNodeEditModal();
 }
 
 function openWorkflow(workflowId: string) {
@@ -717,18 +761,15 @@ function openWorkflow(workflowId: string) {
 // Workflow Management Functions
 async function fetchAvailableWorkflows() {
 	try {
-		console.log('Fetching available workflows...');
 		const response = await api.get('/items/workflows', {
 			params: {
 				fields: ['id', 'name'],
 				limit: -1,
 			},
 		});
-		console.log('Workflows response:', response.data);
 		availableWorkflows.value = response.data.data || [];
-		console.log('Available workflows:', availableWorkflows.value);
 	} catch (error) {
-		console.error('Error fetching workflows:', error);
+		console.error('[API] Error fetching workflows:', error);
 		availableWorkflows.value = [];
 	}
 }
@@ -757,10 +798,6 @@ function generateWorkflowLinkId(): string {
 }
 
 async function addWorkflowToPhase() {
-	console.log('Adding workflow to phase...');
-	console.log('Selected phase ID:', selectedPhaseId.value);
-	console.log('Selected workflow ID:', selectedWorkflowId.value);
-	
 	if (!selectedPhaseId.value || !selectedWorkflowId.value) return;
 	
 	const selectedWorkflow = availableWorkflows.value.find(w => w.id === selectedWorkflowId.value);
@@ -770,8 +807,6 @@ async function addWorkflowToPhase() {
 	if (phaseIndex === -1) return;
 
 	const phase = phases.value[phaseIndex];
-	console.log('Found phase:', phase);
-	console.log('Current workflows in phase:', phase.workflows);
 
 	// Create new workflow link
 	const newWorkflowLink = {
@@ -781,7 +816,7 @@ async function addWorkflowToPhase() {
 		order: phase.workflows.length
 	};
 
-	console.log('New workflow link:', newWorkflowLink);
+	console.log('[WORKFLOW] Adding workflow:', newWorkflowLink.title);
 
 	// Create new array to trigger reactivity
 	const updatedWorkflows = [...phase.workflows, newWorkflowLink];
@@ -791,8 +826,6 @@ async function addWorkflowToPhase() {
 		...phase,
 		workflows: updatedWorkflows
 	};
-	
-	console.log('Updated workflows in phase:', phases.value[phaseIndex].workflows);
 	
 	// Force Vue to re-render by triggering reactivity
 	await nextTick();
@@ -895,25 +928,60 @@ function loadWorkflowLinksFromState(workflowLinks: Record<string, any[]>) {
 function applyPhasesForCurrentProgram() {
 	const key = getProgramKey(selectedProgram.value);
 	const links = programWorkflowLinks.value[key] || {};
-	console.log('Applying phases for program:', key, 'Links:', links);
 	loadWorkflowLinksFromState(links);
-	console.log('Applied phases:', phases.value.map(p => ({ id: p.id, workflowCount: p.workflows.length })));
+	applyNodeCustomizations();
+}
+
+function applyNodeCustomizations() {
+	const programKey = getProgramKey(selectedProgram.value);
+	const customizations = programNodeDescriptions.value[programKey] || {};
+	
+	console.log('[NODE] Applying customizations for program:', programKey, customizations);
+	
+	flowNodes.value = flowNodes.value.map(node => {
+		const nodeCustom = customizations[node.id];
+		const originalLabel = node.data.originalLabel || node.data.label;
+		
+		if (nodeCustom && nodeCustom.customLabel) {
+			return {
+				...node,
+				data: {
+					...node.data,
+					label: nodeCustom.customLabel,
+					description: nodeCustom.description,
+					originalLabel: originalLabel
+				}
+			};
+		} else if (nodeCustom && nodeCustom.description) {
+			return {
+				...node,
+				data: {
+					...node.data,
+					label: originalLabel,
+					description: nodeCustom.description,
+					originalLabel: originalLabel
+				}
+			};
+		}
+		return {
+			...node,
+			data: {
+				...node.data,
+				label: originalLabel,
+				description: undefined,
+				originalLabel: originalLabel
+			}
+		};
+	});
 }
 
 function syncProgramFromPhases(programId?: string | number | null) {
-	console.log('SYNC: syncProgramFromPhases() called for program:', programId ?? selectedProgram.value);
-	console.log('SYNC: Current phases:', JSON.stringify(phases.value, null, 2));
-	console.log('SYNC: Current programWorkflowLinks before sync:', JSON.stringify(programWorkflowLinks.value, null, 2));
 	const key = getProgramKey(programId ?? selectedProgram.value);
 	const linksMap = phasesToLinksMap(phases.value);
-	console.log('SYNC: key=', key, 'linksMap=', JSON.stringify(linksMap, null, 2));
 	programWorkflowLinks.value[key] = linksMap;
-	console.log('SYNC RESULT: programWorkflowLinks=', JSON.stringify(programWorkflowLinks.value, null, 2));
 }
 
 function initializeDefaultPhases() {
-	console.log('INIT: initializeDefaultPhases() called - this will create empty phases');
-	console.log('INIT: Current programWorkflowLinks before init:', JSON.stringify(programWorkflowLinks.value, null, 2));
 	phases.value = [
 		{
 			id: 'request_service',
@@ -940,7 +1008,6 @@ function initializeDefaultPhases() {
 			workflows: []
 		}
 	];
-	console.log('INIT: initializeDefaultPhases() completed - phases now have empty workflows');
 }
 
 // Handle separator text editing
@@ -958,8 +1025,6 @@ const { zoomIn, zoomOut, fitView } = useVueFlow();
 
 // Reset to default node and edge layout
 function resetToDefaultLayout() {
-	console.log('Resetting to default layout...');
-	
 	// Reset nodes to original positions
 	flowNodes.value = [
 		// Phase nodes - positioned with proper spacing: 1/5, 1/5, 2/5, 1/5
@@ -1020,17 +1085,15 @@ function resetToDefaultLayout() {
 	setTimeout(() => {
 		fitView();
 	}, 100);
-	
-	console.log('Layout reset to defaults');
 }
 
 // Initialize from props
 	onMounted(async () => {
-	console.log('onMounted: Starting initialization');
+
 	try {
 		// Set initializing state
 		isInitializing.value = true;
-		console.log('onMounted: isInitializing set to true');
+
 		
 		// Hide the default Directus header
 		const headerBar = document.querySelector('.header-bar');
@@ -1048,8 +1111,6 @@ function resetToDefaultLayout() {
 		applyPhasesForCurrentProgram();
 		
 		// Debug: Log current nodes
-		console.log('Current flowNodes after initialization:', flowNodes.value);
-		console.log('Separator node exists:', flowNodes.value.find(n => n.type === 'separator'));
 		
 		// Add a small delay to ensure everything is properly initialized
 		await nextTick();
@@ -1057,7 +1118,7 @@ function resetToDefaultLayout() {
 		// Mark initialization as complete
 		isInitializing.value = false;
 		
-		console.log('Process map initialization completed');
+
 	} catch (error) {
 		console.error('Error during initialization:', error);
 		// Even on error, mark as not initializing to show the canvas
@@ -1865,6 +1926,23 @@ function resetToDefaultLayout() {
 }
 
 .workflow-select:focus {
+	outline: none;
+	border-color: var(--theme--primary);
+}
+
+.node-description-input {
+	padding: 0.5rem;
+	border: 1px solid var(--theme--form--field--input--border-color);
+	border-radius: var(--theme--border-radius);
+	background: var(--theme--form--field--input--background);
+	color: var(--theme--form--field--input--foreground);
+	font-size: 0.875rem;
+	font-family: inherit;
+	resize: vertical;
+	width: 100%;
+}
+
+.node-description-input:focus {
 	outline: none;
 	border-color: var(--theme--primary);
 }

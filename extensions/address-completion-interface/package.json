@@ -28,6 +28,7 @@
 	},
 	"scripts": {
 		"build": "directus-extension build",
+		"postbuild": "cp package.json dist/",
 		"dev": "directus-extension build -w --no-minify",
 		"link": "directus-extension link"
 	},

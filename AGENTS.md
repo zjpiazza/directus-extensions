@@ -23,6 +23,24 @@ The current repository contains multiple Directus extensions using the "editor" 
   - Interface: Client-side SSN formatting (XXX-XX-XXXX), optional masking, validation
   - Hook: Server-side validation enforcing 9-digit format on save
 
+### datahub-module
+- **Type**: Module extension
+- **Technology**: Vue.js
+- **Purpose**: DataHub integration module for data catalog functionality
+- **Authentication**: Uses standard Directus authentication
+- **Integration**: Works with datahub-proxy endpoint
+
+### datahub-proxy
+- **Type**: Endpoint extension
+- **Technology**: Node.js server-side endpoint
+- **Purpose**: Server-side proxy for DataHub GraphQL API calls
+- **Endpoint**: `/datahub-proxy`
+- **Authentication**: **Requires Directus authentication** - users must be logged into Directus
+- **Configuration**: Requires environment variables:
+  - `DATAHUB_GMS_URL`: DataHub GMS URL (e.g., `http://datahub-gms:8080`)
+  - `DATAHUB_GMS_TOKEN`: DataHub authentication token
+- **Why a proxy?**: Avoids CORS issues by making DataHub API calls from the Directus backend instead of the browser
+
 ## Development Environment
 
 ### Prerequisites
@@ -125,6 +143,20 @@ The current repository contains multiple Directus extensions using the "editor" 
 - Each entry specifies `type`, `name`, and `source` file path
 - Build generates separate `app.js` (client-side) and `api.js` (server-side) bundles
 - Recommended approach for interfaces requiring server-side validation
+
+#### Endpoint Extensions
+- Create custom API endpoints accessible at `/your-endpoint-id`
+- Run on the Directus backend (server-side)
+- Built using `defineEndpoint()` from `@directus/extensions-sdk`
+- **Authentication**: By default, endpoints use standard Directus authentication
+  - Users must be authenticated to call the endpoint
+  - Do NOT set `req.accountability = null` unless you explicitly need a public endpoint
+  - Access user info via `req.accountability` if needed
+- **Use cases**: 
+  - Proxying external APIs (e.g., to avoid CORS)
+  - Custom business logic that needs to run server-side
+  - Integration with third-party services
+- Access environment variables via the `env` parameter in the handler
 
 ## Common Tasks
 - Building extensions: `pnpm build`

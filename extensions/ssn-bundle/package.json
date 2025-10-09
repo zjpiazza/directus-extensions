@@ -1,0 +1,39 @@
+{
+  "name": "directus-extension-ssn-bundle",
+  "version": "1.0.0",
+  "description": "SSN interface with server-side validation hook",
+  "type": "module",
+  "directus:extension": {
+    "type": "bundle",
+    "path": {
+      "app": "dist/app.js",
+      "api": "dist/api.js"
+    },
+    "entries": [
+      {
+        "type": "interface",
+        "name": "ssn",
+        "source": "src/interface/index.ts"
+      },
+      {
+        "type": "hook",
+        "name": "ssn-validation",
+        "source": "src/hook/index.ts"
+      }
+    ],
+    "host": "^11.0.0"
+  },
+  "scripts": {
+    "build": "directus-extension build",
+    "dev": "directus-extension build -w"
+  },
+  "devDependencies": {
+    "@directus/extensions-sdk": "^12.0.2",
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3",
+    "vue": "^3.4.0"
+  },
+  "dependencies": {
+    "directus": "^11.0.0"
+  }
+}

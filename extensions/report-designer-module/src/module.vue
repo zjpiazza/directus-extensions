@@ -5,18 +5,60 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted } from 'vue';
+import { defineComponent, onMounted, onBeforeUnmount } from 'vue';
 import $ from 'jquery';
 
 export default defineComponent({
 	setup() {
+		let resizeObserver: ResizeObserver | null = null;
+		let resizeTimeout: number | null = null;
+
+		const handleResize = () => {
+			if (resizeTimeout) {
+				clearTimeout(resizeTimeout);
+			}
+
+			resizeTimeout = window.setTimeout(() => {
+				const designerObj = $("#designer").data("boldReportDesigner");
+				if (designerObj && designerObj.refreshLayout) {
+					designerObj.refreshLayout();
+				}
+			}, 250);
+		};
+
 		onMounted(() => {
+			if (window.location.pathname.includes("/report-designer")) {
+				document.body.classList.add("hide-sidebar-view");
+			}
+
 			$("#designer").boldReportDesigner({
 				serviceUrl: "http://localhost:8090/reporting/reportservice/api/Designer",
 				reportServerUrl: "http://localhost:6505/reporting/api/site/site1",
-				serviceAuthorizationToken: "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InphY2hAcGlhenphY29uc3VsdGluZy5jb20iLCJuYW1laWQiOiIxIiwidW5pcXVlX25hbWUiOiJkMjZkZjM0MS0yMWY1LTQyNWUtYTNkZS01Yjc0ZTc5Njk4YWYiLCJJUCI6Ijo6MSIsImlzc3VlZF9kYXRlIjoiMTc1OTc2MzQwNCIsIm5iZiI6MTc1OTc2MzQwNCwiZXhwIjoxNzYwNDAwMDAwLCJpYXQiOjE3NTk3NjM0MDQsImlzcyI6Imh0dHA6Ly8xOTIuMTY4LjEuMjI1OjgwOTAvcmVwb3J0aW5nL3NpdGUvc2l0ZTEiLCJhdWQiOiJodHRwOi8vMTkyLjE2OC4xLjIyNTo4MDkwL3JlcG9ydGluZy9zaXRlL3NpdGUxIn0.Zn7_aC9T2tEv_llbx-azzmQncIOLzNMC-AxU0LGL8hE",
+				serviceAuthorizationToken: "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImRlbW9AYm9sZHJlcG9ydHMuY29tIiwibmFtZWlkIjoiMSIsInVuaXF1ZV9uYW1lIjoiOTJjNjQ1MmQtZGUzNi00N2U0LThhOTYtMzdkOThhNDQ4NTBkIiwiSVAiOiI6OjEiLCJpc3N1ZWRfZGF0ZSI6IjE3NjAxMDM2MzIiLCJuYmYiOjE3NjAxMDM2MzIsImV4cCI6MTc2MDc0NTYwMCwiaWF0IjoxNzYwMTAzNjMyLCJpc3MiOiJodHRwOi8vbG9jYWxob3N0OjgwOTAvcmVwb3J0aW5nL3NpdGUvc2l0ZTEiLCJhdWQiOiJodHRwOi8vbG9jYWxob3N0OjgwOTAvcmVwb3J0aW5nL3NpdGUvc2l0ZTEifQ.6LYhohyFOg22-SuRnbQEXnRBbn2QkuWChaXWr9soWYI",
 				configurePaneSettings: { showPane: false }
 			});
+
+			window.addEventListener('resize', handleResize);
+
+			const sidebar = document.querySelector('aside#sidebar');
+			if (sidebar) {
+				resizeObserver = new ResizeObserver(handleResize);
+				resizeObserver.observe(sidebar);
+			}
+		});
+
+		onBeforeUnmount(() => {
+			document.body.classList.remove("hide-sidebar-view");
+
+			window.removeEventListener('resize', handleResize);
+
+			if (resizeObserver) {
+				resizeObserver.disconnect();
+			}
+
+			if (resizeTimeout) {
+				clearTimeout(resizeTimeout);
+			}
 		});
 	}
 });
@@ -27,5 +69,14 @@ export default defineComponent({
 	display: block;
 	height: inherit;
 	width: inherit;
+}
+
+body.hide-sidebar-view aside#sidebar {
+	display: none !important;
+}
+
+span.e-rptdesigner-itempanel-textitem {
+	line-height: normal;
+	width: 80%;
 }
 </style>

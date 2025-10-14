@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import NavigationSidebar from './components/NavigationSidebar.vue';
 import SettingsPanel from './components/SettingsPanel.vue';
@@ -79,6 +79,30 @@ const authToken = ref(localStorage.getItem('boldreports_auth_token') || '');
 
 const isConfigured = computed(() => serverUrl.value && siteName.value && authToken.value);
 const currentReport = computed(() => reports.value.find(r => r.Id === reportId.value));
+
+let resizeObserver: ResizeObserver | null = null;
+let resizeTimeout: number | null = null;
+
+const handleResize = () => {
+	console.log('[DEBUG] handleResize called');
+	if (resizeTimeout) {
+		clearTimeout(resizeTimeout);
+	}
+
+	resizeTimeout = window.setTimeout(() => {
+		const viewer = $('#report-viewer');
+		console.log('[DEBUG] viewer element:', viewer.length);
+		const viewerObj = viewer.data('boldReportViewer');
+		console.log('[DEBUG] viewerObj:', viewerObj);
+		console.log('[DEBUG] viewerObj methods:', viewerObj ? Object.keys(viewerObj) : 'none');
+		if (viewerObj && typeof viewerObj.refresh === 'function') {
+			console.log('[DEBUG] Calling refresh()');
+			viewerObj.refresh();
+		} else {
+			console.log('[DEBUG] No refresh method available');
+		}
+	}, 250);
+};
 
 async function loadBoldReportsFromCDN() {
 	const version = '11.1.10';
@@ -178,6 +202,10 @@ watch(isConfigured, (configured) => {
 });
 
 onMounted(async () => {
+	if (window.location.pathname.includes("/report-viewer")) {
+		document.body.classList.add("hide-sidebar-view");
+	}
+
 	await loadBoldReportsFromCDN();
 	if (isConfigured.value) {
 		await loadReports();
@@ -185,9 +213,33 @@ onMounted(async () => {
 			initializeReportViewer();
 		}
 	}
+
+	window.addEventListener('resize', handleResize);
+
+	const sidebar = document.querySelector('aside#sidebar');
+	console.log('[DEBUG] sidebar element found:', !!sidebar);
+	if (sidebar) {
+		resizeObserver = new ResizeObserver(handleResize);
+		resizeObserver.observe(sidebar);
+		console.log('[DEBUG] ResizeObserver attached to sidebar');
+	}
+});
+
+onBeforeUnmount(() => {
+	window.removeEventListener('resize', handleResize);
+
+	if (resizeObserver) {
+		resizeObserver.disconnect();
+	}
+
+	if (resizeTimeout) {
+		clearTimeout(resizeTimeout);
+	}
 });
 
 onUnmounted(() => {
+	document.body.classList.remove("hide-sidebar-view");
+
 	const viewer = $('#report-viewer');
 	if (viewer.length && viewer.data('boldReportViewer')) {
 		viewer.data('boldReportViewer').destroy();
@@ -222,5 +274,11 @@ onUnmounted(() => {
 .report-viewer {
 	height: calc(100vh - 200px);
 	width: 100%;
+}
+</style>
+
+<style>
+body.hide-sidebar-view aside#sidebar {
+	display: none !important;
 }
 </style>

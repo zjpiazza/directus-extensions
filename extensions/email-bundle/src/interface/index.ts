@@ -7,6 +7,7 @@ export default defineInterface({
 	icon: 'email',
 	description: 'Email input field with validation',
 	component: InterfaceComponent,
+	recommendedDisplays: ['email-display'],
 	types: ['string'],
 	group: 'standard',
 	options: ({ field }) => [

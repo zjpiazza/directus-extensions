@@ -1,12 +1,45 @@
 export default ({ filter }: any, { services, getSchema }: any) => {
 	filter('items.create', async (input: any, meta: any, context: any) => {
+		if (meta.collection === 'directus_fields') {
+			autoSetEmailDisplay(input);
+			return;
+		}
 		await validateEmailFields(input, meta, context, services, getSchema);
 	});
 
 	filter('items.update', async (input: any, meta: any, context: any) => {
+		if (meta.collection === 'directus_fields') {
+			autoSetEmailDisplay(input);
+			return;
+		}
 		await validateEmailFields(input, meta, context, services, getSchema);
 	});
 };
+
+function autoSetEmailDisplay(input: any) {
+	const apply = (record: any) => {
+		const iface = record?.meta?.interface;
+		if (iface === 'email-input') {
+			record.meta = record.meta || {};
+			if (!record.meta.display) {
+				record.meta.display = 'email-display';
+			}
+			if (record.meta.display === 'email-display') {
+				record.meta.display_options = record.meta.display_options || {};
+				if (record.meta.display_options.obfuscate === undefined) {
+					// default to false; map from interface option if provided
+					record.meta.display_options.obfuscate = record.meta?.options?.obfuscate ?? false;
+				}
+			}
+		}
+	};
+
+	if (Array.isArray(input)) {
+		for (const r of input) apply(r);
+	} else if (input && typeof input === 'object') {
+		apply(input);
+	}
+}
 
 async function validateEmailFields(
 	input: any,

@@ -16,6 +16,11 @@
         "source": "src/interface/index.ts"
       },
       {
+        "type": "display",
+        "name": "ssn-display",
+        "source": "src/display/index.ts"
+      },
+      {
         "type": "hook",
         "name": "ssn-validation",
         "source": "src/hook/index.ts"

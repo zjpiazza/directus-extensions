@@ -8,7 +8,7 @@ export default defineInterface({
 	description: 'Input field for Social Security Numbers with formatting and validation',
 	component: InterfaceComponent,
 	types: ['string'],
-	recommendedDisplays: ['formatted-value'],
+	recommendedDisplays: ['ssn-display', 'formatted-value'],
 	options: [
 		{
 			field: 'required',

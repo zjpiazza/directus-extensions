@@ -25,6 +25,11 @@
 				"source": "src/interface/index.ts"
 			},
 			{
+				"type": "display",
+				"name": "email-display",
+				"source": "src/display/index.ts"
+			},
+			{
 				"type": "hook",
 				"name": "email-validation-hook",
 				"source": "src/hook/index.ts"

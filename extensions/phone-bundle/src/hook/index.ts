@@ -1,12 +1,44 @@
 export default ({ filter }: any, { services, getSchema }: any) => {
 	filter('items.create', async (input: any, meta: any, context: any) => {
+		if (meta.collection === 'directus_fields') {
+			autoSetPhoneDisplay(input);
+			return;
+		}
 		await validatePhoneFields(input, meta, context, services, getSchema);
 	});
 
 	filter('items.update', async (input: any, meta: any, context: any) => {
+		if (meta.collection === 'directus_fields') {
+			autoSetPhoneDisplay(input);
+			return;
+		}
 		await validatePhoneFields(input, meta, context, services, getSchema);
 	});
 };
+
+function autoSetPhoneDisplay(input: any) {
+	const apply = (record: any) => {
+		const iface = record?.meta?.interface;
+		if (iface === 'phone') {
+			record.meta = record.meta || {};
+			if (!record.meta.display) {
+				record.meta.display = 'phone-display';
+			}
+			if (record.meta.display === 'phone-display') {
+				record.meta.display_options = record.meta.display_options || {};
+				if (!record.meta.display_options.format) {
+					record.meta.display_options.format = record.meta?.options?.format || 'us';
+				}
+			}
+		}
+	};
+
+	if (Array.isArray(input)) {
+		for (const r of input) apply(r);
+	} else if (input && typeof input === 'object') {
+		apply(input);
+	}
+}
 
 async function validatePhoneFields(input: any, meta: any, context: any, services: any, getSchema: any) {
 	const { collection } = meta;

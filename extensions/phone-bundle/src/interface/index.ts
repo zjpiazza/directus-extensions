@@ -8,7 +8,7 @@ export default defineInterface({
 	description: 'Input field for phone numbers with formatting and validation',
 	component: InterfaceComponent,
 	types: ['string'],
-	recommendedDisplays: ['formatted-value'],
+	recommendedDisplays: ['phone-display', 'formatted-value'],
 	options: [
 		{
 			field: 'required',

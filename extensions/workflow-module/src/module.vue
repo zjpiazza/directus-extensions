@@ -8,6 +8,7 @@ import { Background } from '@vue-flow/background';
 
 // Import custom components
 import CustomHeader from './components/CustomHeader.vue';
+import NavigationSidebar from './components/NavigationSidebar.vue';
 import NodePalette from './components/NodePalette.vue';
 import DetailsSidebar from './components/DetailsSidebar.vue';
 import WorkflowLegend from './components/WorkflowLegend.vue';
@@ -630,7 +631,17 @@ const {
 const handleNavigateToWorkflow = (workflowId: string) => {
   if (!workflowId) return;
   debugLog('navigate-to-workflow requested', workflowId);
-  // TODO: Implement actual navigation using Directus router if accessible
+  const target = `/admin/content/${props.collection}/${workflowId}`;
+  try {
+    if (window && 'open' in window) {
+      window.open(target, '_self');
+    } else {
+      // Fallback
+      (location as any).assign(target);
+    }
+  } catch (e) {
+    (location as any).assign(target);
+  }
 };
 
 const handleOpenCollection = handleOpenCollectionUtil;
@@ -919,176 +930,186 @@ useDataWatchers({
 </script>
 
 <template>
-  <div class="workflows-editor">
-    <!-- Custom Header -->
-    <CustomHeader
-      :collection="props.collection"
-      :primary-key="props.primaryKey?.toString() || null"
-      :title="title"
-      :has-edits="hasChanges"
-      :saving="props.saving || localSaving"
-      :is-new="props.isNew"
-      :collection-info="props.collectionInfo"
-      :item="props.item"
-      :validation-errors="props.validationErrors"
-      :flow-name="flowName"
-      :mode="internalMode"
-      :can-edit="canEdit"
-      :follow-mode="followMode"
-      :show-descriptions="showDescriptions"
-      @save="saveFlow"
-      @delete="() => emit('delete')"
-      @archive="() => emit('archive')"
-      @save-as-copy="() => emit('save-as-copy')"
-      @clone-workflow="cloneWorkflow"
-      @update-flow-name="handleUpdateFlowName"
-      @update-mode="handleModeChange"
-      @toggle-follow-mode="setFollowMode"
-      @toggle-descriptions="toggleDescriptions"
-      @show-diff="showDiff"
-    />
+	<private-view title="Workflow">
+		<template #headline>
+			<v-breadcrumb :items="[{ name: 'Workflow', to: '/workflow-module' }]" />
+		</template>
 
-    <!-- Main Editor Layout -->
-    <div class="editor-layout" :class="layoutClasses">
-      <!-- Node Palette -->
-      <NodePalette
-        v-if="showNodePalette && isEditMode"
-        :is-edit-mode="isEditMode"
-        :node-types="nodeTypes"
-        @drag-start="onDragStart"
-        @toggle="toggleNodePalette"
-      />
+		<template #title>
+			<h1 class="type-title">Workflow</h1>
+		</template>
 
-      <!-- Vue Flow Canvas -->
-      <div
-        class="canvas-container"
-        :class="{ 'full-width': isViewMode }"
-        @drop="onDrop"
-        @dragover="onDragOver"
-        @dragleave="onDragLeave"
-      >
-        <!-- Expand buttons for collapsed panels -->
-        <ExpandButtons
-          :show-node-palette="showNodePalette"
-          :show-details-sidebar="showDetailsSidebar"
-          :is-edit-mode="isEditMode"
-          @toggle-node-palette="toggleNodePalette"
-          @toggle-details-sidebar="toggleDetailsSidebar"
-        />
+		<div class="workflows-editor">
+			<!-- Custom Header -->
+			<CustomHeader
+				:collection="props.collection"
+				:primary-key="props.primaryKey?.toString() || null"
+				:title="title"
+				:has-edits="hasChanges"
+				:saving="props.saving || localSaving"
+				:is-new="props.isNew"
+				:collection-info="props.collectionInfo"
+				:item="props.item"
+				:validation-errors="props.validationErrors"
+				:flow-name="flowName"
+				:mode="internalMode"
+				:can-edit="canEdit"
+				:follow-mode="followMode"
+				:show-descriptions="showDescriptions"
+				@save="saveFlow"
+				@delete="() => emit('delete')"
+				@archive="() => emit('archive')"
+				@save-as-copy="() => emit('save-as-copy')"
+				@clone-workflow="cloneWorkflow"
+				@update-flow-name="handleUpdateFlowName"
+				@update-mode="handleModeChange"
+				@toggle-follow-mode="setFollowMode"
+				@toggle-descriptions="toggleDescriptions"
+				@show-diff="showDiff"
+			/>
+
+			<!-- Main Editor Layout -->
+			<div class="editor-layout" :class="layoutClasses">
+				<!-- Node Palette -->
+				<NodePalette
+					v-if="showNodePalette && isEditMode"
+					:is-edit-mode="isEditMode"
+					:node-types="nodeTypes"
+					@drag-start="onDragStart"
+					@toggle="toggleNodePalette"
+				/>
+
+				<!-- Vue Flow Canvas -->
+				<div
+					class="canvas-container"
+					:class="{ 'full-width': isViewMode }"
+					@drop="onDrop"
+					@dragover="onDragOver"
+					@dragleave="onDragLeave"
+				>
+					<!-- Expand buttons for collapsed panels -->
+					<ExpandButtons
+						:show-node-palette="showNodePalette"
+						:show-details-sidebar="showDetailsSidebar"
+						:is-edit-mode="isEditMode"
+						@toggle-node-palette="toggleNodePalette"
+						@toggle-details-sidebar="toggleDetailsSidebar"
+					/>
 
 
 
-        <!-- Node Description Dialog -->
-        <NodeDescriptionDialog
-          :node-description="focusedNodeDescriptionWithPosition"
-          :show-dialog="Boolean(focusedNodeDescription && followMode && showDescriptions)"
-        />
+					<!-- Node Description Dialog -->
+					<NodeDescriptionDialog
+						:node-description="focusedNodeDescriptionWithPosition"
+						:show-dialog="Boolean(focusedNodeDescription && followMode && showDescriptions)"
+					/>
 
-        <Transition name="page-transition" mode="out-in">
-          <VueFlow
-            :key="currentPageId"
-            v-model:nodes="visibleNodes"
-            v-model:edges="visibleEdges"
-          :node-types="{
-            start: StartNode,
-            end: EndNode,
-            terminal: TerminalNode,
-            process: ProcessNode,
-            decision: DecisionNode,
+					<Transition name="page-transition" mode="out-in">
+						<VueFlow
+							:key="currentPageId"
+							v-model:nodes="visibleNodes"
+							v-model:edges="visibleEdges"
+						:node-types="{
+							start: StartNode,
+							end: EndNode,
+							terminal: TerminalNode,
+							process: ProcessNode,
+							decision: DecisionNode,
 
-            page: PageNode
-          }"
-          :edge-types="{
-            step: LabeledEdge
-          }"
-          :default-edge-type="'step'"
-          :nodes-draggable="isEditMode"
-          :edges-updatable="isEditMode"
-          :edges-reconnectable="isEditMode"
-          :nodes-connectable="isEditMode"
-          :connection-mode="ConnectionMode.Loose"
-          :connection-line-style="{ strokeWidth: 2, stroke: '#0066cc' }"
-          :connection-line-type="'smoothstep'"
-          :elements-selectable="isEditMode"
-          :default-viewport="{ x: 0, y: 0, zoom: 1 }"
-          :min-zoom="0.1"
-          :max-zoom="4"
-          :fit-view-on-init="false"
-          :fit-view-on-init-options="{ padding: 0.1 }"
-          :zoom-on-scroll="true"
-          :zoom-on-pinch="true"
-          :pan-on-drag="[1, 2]"
-          :multi-selection-key-code="true"
-          :zoom-on-double-click="false"
-          :snap-to-grid="true"
-          :snap-grid="[20, 20]"
-          @node-click="onNodeClick"
-          @edge-click="onEdgeClick"
-          @pane-click="onPaneClick"
-          @connect="onConnect"
-          @edge-update="isEditMode ? onEdgeUpdate : () => {}"
-          @connect-start="onConnectStart"
-          @connect-end="onConnectEnd"
-          @node-drag-stop="onNodeDragStop"
-        >
-          <!-- Controls -->
-          <Controls />
+							page: PageNode
+						}"
+						:edge-types="{
+							step: LabeledEdge
+						}"
+						:default-edge-type="'step'"
+						:nodes-draggable="isEditMode"
+						:edges-updatable="isEditMode"
+						:edges-reconnectable="isEditMode"
+						:nodes-connectable="isEditMode"
+						:connection-mode="ConnectionMode.Loose"
+						:connection-line-style="{ strokeWidth: 2, stroke: '#0066cc' }"
+						:connection-line-type="'smoothstep'"
+						:elements-selectable="isEditMode"
+						:default-viewport="{ x: 0, y: 0, zoom: 1 }"
+						:min-zoom="0.1"
+						:max-zoom="4"
+						:fit-view-on-init="false"
+						:fit-view-on-init-options="{ padding: 0.1 }"
+						:zoom-on-scroll="true"
+						:zoom-on-pinch="true"
+						:pan-on-drag="[1, 2]"
+						:multi-selection-key-code="true"
+						:zoom-on-double-click="false"
+						:snap-to-grid="true"
+						:snap-grid="[20, 20]"
+						@node-click="onNodeClick"
+						@edge-click="onEdgeClick"
+						@pane-click="onPaneClick"
+						@connect="onConnect"
+						@edge-update="isEditMode ? onEdgeUpdate : () => {}"
+						@connect-start="onConnectStart"
+						@connect-end="onConnectEnd"
+						@node-drag-stop="onNodeDragStop"
+					>
+						<!-- Controls -->
+						<Controls />
 
-          <!-- Background with grid -->
-          <Background pattern="dots" :gap="20" :size="1" color="#aaa" />
-          </VueFlow>
-        </Transition>
+						<!-- Background with grid -->
+						<Background pattern="dots" :gap="20" :size="1" color="#aaa" />
+						</VueFlow>
+					</Transition>
 
-        <!-- Page Selector at bottom of canvas -->
-        <div class="page-selector-container">
-          <PageSelector
-            :pages="pages"
-            :current-page-id="currentPageId"
-            :is-edit-mode="isEditMode"
-            @navigate-to-page="handleNavigateToPage"
-            @create-page="handleCreatePage"
-            @delete-page="handleDeletePage"
-            @rename-page="handleRenamePage"
-          />
-        </div>
+					<!-- Page Selector at bottom of canvas -->
+					<div class="page-selector-container">
+						<PageSelector
+							:pages="pages"
+							:current-page-id="currentPageId"
+							:is-edit-mode="isEditMode"
+							@navigate-to-page="handleNavigateToPage"
+							@create-page="handleCreatePage"
+							@delete-page="handleDeletePage"
+							@rename-page="handleRenamePage"
+						/>
+					</div>
 
-        <!-- Off-page References Legend (visible in view mode) -->
-        <div v-if="isViewMode && usedWorkflowIds.length > 0" class="canvas-legend">
-          <WorkflowLegend
-            :workflows="availableWorkflows"
-            :used-workflow-ids="usedWorkflowIds"
-            @navigate-to-workflow="handleNavigateToWorkflow"
-          />
-        </div>
-      </div>
+					<!-- Off-page References Legend (visible in view mode) -->
+					<div v-if="isViewMode && usedWorkflowIds.length > 0" class="canvas-legend">
+						<WorkflowLegend
+							:workflows="availableWorkflows"
+							:used-workflow-ids="usedWorkflowIds"
+							@navigate-to-workflow="handleNavigateToWorkflow"
+						/>
+					</div>
+				</div>
 
-      <!-- Details Sidebar -->
-      <DetailsSidebar
-        v-if="showDetailsSidebar && isEditMode"
-        :is-edit-mode="isEditMode"
-        :is-view-mode="isViewMode"
-        :selected-node="selectedNode"
-        :selected-edge="selectedEdge"
-        :available-collections="availableCollections"
-        :available-workflows="availableWorkflows"
-        :available-pages="pages"
-        :used-workflow-ids="usedWorkflowIds"
-        :edits="props.modelValue"
-        :item="props.item"
-        @update-node-data="updateNodeData"
-        @update-edge-data="updateEdgeData"
-        @update-form-collection="updateFormCollection"
-        @update-form-collections="updateFormCollections"
-        @update-end-node-target="updateEndNodeTarget"
-        @update-page-node-target="updatePageNodeTarget"
-        @delete-selected-node="deleteSelectedNode"
-        @delete-selected-edge="deleteSelectedEdge"
-        @navigate-to-workflow="handleNavigateToWorkflow"
-        @navigate-to-page="handleNavigateToPage"
-        @toggle="toggleDetailsSidebar"
-      />
-    </div>
-  </div>
+				<!-- Details Sidebar -->
+				<DetailsSidebar
+					v-if="showDetailsSidebar && isEditMode"
+					:is-edit-mode="isEditMode"
+					:is-view-mode="isViewMode"
+					:selected-node="selectedNode"
+					:selected-edge="selectedEdge"
+					:available-collections="availableCollections"
+					:available-workflows="availableWorkflows"
+					:available-pages="pages"
+					:used-workflow-ids="usedWorkflowIds"
+					:edits="props.modelValue"
+					:item="props.item"
+					@update-node-data="updateNodeData"
+					@update-edge-data="updateEdgeData"
+					@update-form-collection="updateFormCollection"
+					@update-form-collections="updateFormCollections"
+					@update-end-node-target="updateEndNodeTarget"
+					@update-page-node-target="updatePageNodeTarget"
+					@delete-selected-node="deleteSelectedNode"
+					@delete-selected-edge="deleteSelectedEdge"
+					@navigate-to-workflow="handleNavigateToWorkflow"
+					@navigate-to-page="handleNavigateToPage"
+					@toggle="toggleDetailsSidebar"
+				/>
+			</div>
+		</div>
+	</private-view>
 </template>
 
 <style>
@@ -1101,17 +1122,19 @@ useDataWatchers({
 <style scoped>
 .workflows-editor {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--theme--background, #ffffff);
+  padding: var(--content-padding);
+  padding-top: 0;
 }
 
 .editor-layout {
   flex: 1;
   display: grid;
   grid-template-columns: 250px 1fr 300px;
-  height: calc(100vh - 150px); /* Adjust based on new header height with breadcrumbs */
+  height: calc(100% - 150px); /* Adjust based on new header height with breadcrumbs */
   overflow: hidden;
   transition: grid-template-columns 0.3s ease;
 }

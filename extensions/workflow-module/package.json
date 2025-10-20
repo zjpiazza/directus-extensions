@@ -1,19 +1,19 @@
 {
-	"name": "process-map-editor",
+	"name": "workflows-editor",
 	"description": "Please enter a description for your extension",
 	"icon": "extension",
 	"version": "1.0.0",
 	"keywords": [
 		"directus",
 		"directus-extension",
-		"directus-extension-editor"
+		"directus-extension-module"
 	],
 	"type": "module",
 	"files": [
 		"dist"
 	],
 	"directus:extension": {
-		"type": "editor",
+		"type": "module",
 		"path": "dist/index.js",
 		"source": "src/index.ts",
 		"host": "^10.10.0"
@@ -34,8 +34,7 @@
 		"@vue-flow/core": "^1.46.0",
 		"@vue-flow/minimap": "^1.0.3",
 		"@vue-flow/node-resizer": "^1.0.2",
-		"vue": "^3.5.21",
-		"vuedraggable": "^4.1.0"
+		"vue": "^3.5.21"
 	},
 	"devDependencies": {
 		"@directus/extensions-sdk": "npm:@zjpiazza/directus-extensions-sdk@16.0.12",

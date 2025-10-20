@@ -76,7 +76,7 @@ importers:
         specifier: ^3.4.0
         version: 3.5.22(typescript@5.9.3)
 
-  extensions/process-map-editor:
+  extensions/process-map-module:
     dependencies:
       '@vue-flow/background':
         specifier: ^1.0.2
@@ -201,7 +201,7 @@ importers:
         specifier: ^5.9.2
         version: 5.9.3
 
-  extensions/workflows-editor:
+  extensions/workflow-module:
     dependencies:
       '@vue-flow/background':
         specifier: ^1.0.2

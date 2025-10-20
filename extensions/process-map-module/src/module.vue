@@ -1,286 +1,281 @@
 <template>
-	<div class="process-map-container" :class="{ 'custom-header-active': true }">
-		<!-- Main Canvas Area -->
-		<div class="canvas-container">
-			<!-- Loading State -->
-			<div v-if="isInitializing" class="loading-overlay">
-				<div class="loading-content">
-					<v-icon name="hourglass_empty" class="loading-spinner" />
-					<p>Initializing Process Map...</p>
-				</div>
-			</div>
-			
-			<!-- Vue Flow Canvas - Only show when fully initialized -->
-			<VueFlow
-				v-if="!isInitializing"
-				v-model:nodes="flowNodes"
-				v-model:edges="flowEdges"
-				:nodes-draggable="isEditMode"
-				:nodes-connectable="isEditMode"
-				:edges-updatable="isEditMode"
-				snap-to-grid
-				:snap-grid="[20, 20]"
-				:zoom-on-scroll="isEditMode"
-				:zoom-on-pinch="isEditMode"
-				:zoom-on-double-click="false"
-				:pan-on-scroll="false"
-				:pan-on-scroll-mode="PanOnScrollMode.Free"
-				:pan-on-drag="isEditMode"
-				:min-zoom="0.1"
-				:max-zoom="4"
-				:fit-view-on-init="true"
-				:default-edge-options="{ type: 'step', animated: true }"
-				:class="['vue-flow-canvas', `zoom-level-${Math.round(currentZoom * 10)}`]"
-				@nodes-initialized="onNodesInitialized"
-				@move="onViewportMove"
-				@node-click="onNodeClick"
-			>
-				<!-- Custom Node Templates -->
-				<template #node-phase="nodeProps">
-					<PhaseNode v-bind="nodeProps" />
-				</template>
-				<template #node-decision="nodeProps">
-					<DecisionNode v-bind="nodeProps" />
-				</template>
+	<private-view title="Process Map">
+		<template #headline>
+			<v-breadcrumb :items="[{ name: 'Process Map', to: '/process-map' }]" />
+		</template>
 
-				<!-- Background -->
-				<Background pattern="dots" :gap="20" :size="1" color="var(--theme--border-color)" />
+		<template #title>
+			<h1 class="type-title">Process Map</h1>
+		</template>
+		<template #navigation>
+			<navigation-sidebar
+				:programs="programs"
+				:loading="loadingPrograms"
+				:current-program-id="selectedProgram"
+				@select="(id) => selectedProgram = id"
+				@refresh="loadPrograms"
+			/>
+		</template>
+
+		<div class="process-map-container" :class="{ 'custom-header-active': true }">
+			<!-- Main Canvas Area -->
+			<div class="canvas-container">
+				<!-- Loading State -->
+				<div v-if="isInitializing" class="loading-overlay">
+					<div class="loading-content">
+						<v-icon name="hourglass_empty" class="loading-spinner" />
+						<p>Initializing Process Map...</p>
+					</div>
+				</div>
 				
-				<!-- Custom SVG separator line overlay -->
-				<div class="separator-overlay">
-					<svg class="separator-line-svg" width="100%" height="100%" viewBox="0 0 1200 800">
-						<!-- Vertical separator line positioned between Evaluate and Provide Services phases -->
-						<!-- <line 
-							x1="120" y1="0" 
-							x2="120" y2="800" 
-							stroke="#7c3aed" 
-							stroke-width="8" 
-							stroke-linecap="round"
-						/> -->
-						<!-- Text label for the separator -->
-						<!-- <text 
-							x="277" 
-							y="400" 
-							fill="#374151" 
-							font-size="14" 
-							font-weight="600" 
-							letter-spacing="0.5px"
-							text-anchor="middle"
-							transform="rotate(-90, 277, 400)"
-							style="cursor: pointer;"
-							@click="editSeparatorText"
-						>
-							{{ separatorText }}
-						</text> -->
-					</svg>
-				</div>
-
-				<!-- Controls - Hide the default controls -->
-				<Controls :show-zoom="false" :show-fit-view="false" :show-interactive="false">
-					<!-- We'll move all functionality to our custom cluster -->
-				</Controls>
-
-				<!-- Custom Control Cluster - Compact Icon Stack -->
-				<div 
-					class="control-cluster"
-					@mouseenter="isControlsExpanded = true"
-					@mouseleave="isControlsExpanded = false"
+				<!-- Vue Flow Canvas - Only show when fully initialized -->
+				<VueFlow
+					v-if="!isInitializing"
+					v-model:nodes="flowNodes"
+					v-model:edges="flowEdges"
+					:nodes-draggable="isEditMode"
+					:nodes-connectable="isEditMode"
+					:edges-updatable="isEditMode"
+					snap-to-grid
+					:snap-grid="[20, 20]"
+					:zoom-on-scroll="isEditMode"
+					:zoom-on-pinch="isEditMode"
+					:zoom-on-double-click="false"
+					:pan-on-scroll="false"
+					:pan-on-scroll-mode="PanOnScrollMode.Free"
+					:pan-on-drag="isEditMode"
+					:min-zoom="0.1"
+					:max-zoom="4"
+					:fit-view-on-init="true"
+					:default-edge-options="{ type: 'step', animated: true }"
+					:class="['vue-flow-canvas', `zoom-level-${Math.round(currentZoom * 10)}`]"
+					@nodes-initialized="onNodesInitialized"
+					@move="onViewportMove"
+					@node-click="onNodeClick"
 				>
-					<div class="control-stack">
-						<!-- Expanded icons (appear above gear when hovered) -->
-						<div v-if="isControlsExpanded" class="expanded-icons">
-							<button @click="freezeCurrentState" :disabled="isSaving" class="control-icon save-icon" title="Save Process Map">
-								<v-icon :name="isSaving ? 'hourglass_empty' : 'save'" />
-							</button>
-							<button @click="isEditMode = !isEditMode" class="control-icon edit-mode-icon" :title="isEditMode ? 'Switch to View Mode' : 'Switch to Edit Mode'">
-								<v-icon :name="isEditMode ? 'visibility' : 'edit'" />
-							</button>
-							<button @click="fitView" class="control-icon" title="Fit View">
-								<v-icon name="center_focus_strong" />
-							</button>
-							<button @click="resetToDefaultLayout" :disabled="!isEditMode" class="control-icon" :title="isEditMode ? 'Reset Layout' : 'Reset Layout (Edit Mode Only)'">
-								<v-icon name="restart_alt" />
-							</button>
-							<button @click="zoomOut" :disabled="!isEditMode" class="control-icon" :title="isEditMode ? 'Zoom Out' : 'Zoom Out (Edit Mode Only)'">
-								<v-icon name="remove" />
-							</button>
-							<button @click="zoomIn" :disabled="!isEditMode" class="control-icon" :title="isEditMode ? 'Zoom In' : 'Zoom In (Edit Mode Only)'">
-								<v-icon name="add" />
-							</button>
-						</div>
-						
-						<!-- Always visible gear icon -->
-						<div class="gear-icon">
-							<v-icon name="settings" />
-						</div>
-					</div>
-				</div>
+					<!-- Custom Node Templates -->
+					<template #node-phase="nodeProps">
+						<PhaseNode v-bind="nodeProps" />
+					</template>
+					<template #node-decision="nodeProps">
+						<DecisionNode v-bind="nodeProps" />
+					</template>
 
-				<!-- Program Selector - Top Right -->
-				<div class="program-selector-overlay">
-					<div class="program-selector-compact">
-						<label>Program:</label>
-						<select v-model="selectedProgram" class="program-select">
-							<option value="">Select Program</option>
-							<option 
-								v-for="program in programs" 
-								:key="program.id" 
-								:value="program.id"
+					<!-- Background -->
+					<Background pattern="dots" :gap="20" :size="1" color="var(--theme--border-color)" />
+					
+					<!-- Custom SVG separator line overlay -->
+					<div class="separator-overlay">
+						<svg class="separator-line-svg" width="100%" height="100%" viewBox="0 0 1200 800">
+							<!-- Vertical separator line positioned between Evaluate and Provide Services phases -->
+							<!-- <line 
+								x1="120" y1="0" 
+								x2="120" y2="800" 
+								stroke="#7c3aed" 
+								stroke-width="8" 
+								stroke-linecap="round"
+							/> -->
+							<!-- Text label for the separator -->
+							<!-- <text 
+								x="277" 
+								y="400" 
+								fill="#374151" 
+								font-size="14" 
+								font-weight="600" 
+								letter-spacing="0.5px"
+								text-anchor="middle"
+								transform="rotate(-90, 277, 400)"
+								style="cursor: pointer;"
+								@click="editSeparatorText"
 							>
-								{{ program.name }}
-							</option>
-						</select>
+								{{ separatorText }}
+							</text> -->
+						</svg>
 					</div>
-				</div>
-			</VueFlow>
-		</div>
 
-		<!-- Swim Lanes Section -->
-		<div class="swim-lanes-container">
-			<div v-for="phase in phases" :key="phase.id" class="swim-lane">
-				<div class="swim-lane-header" :style="{ backgroundColor: phase.color }">
-					<h3>{{ phase.title }}</h3>
-					<span v-if="isEditMode">
-						<!-- Add Workflow Button -->
-						<button 
-							@click="openAddWorkflowModal(phase.id)"
-							class="add-workflow-btn"
-						>
-							<v-icon name="add" size="small" />
-						</button>
-					</span>
-				</div>
-				<div class="swim-lane-content">
-					<div class="workflow-management">
-						<!-- Draggable Workflow Items -->
-						<draggable
-							v-model="phase.workflows"
-							class="workflow-items"
-							group="workflows"
-							@change="onWorkflowReorder(phase.id, $event)"
-							item-key="id"
-							:animation="200"
-							ghost-class="workflow-ghost"
-							chosen-class="workflow-chosen"
-							drag-class="workflow-drag"
-							:disabled="!isEditMode"
-						>
-							<template #item="{ element: workflow }">
-								<div class="workflow-item-container">
-									<div
-										class="workflow-item"
-										@click="openWorkflow(workflow.workflowId || workflow.id)"
-										v-if="workflow.workflowId || workflow.id"
-									>
-									<div class="workflow-item-content">
-										<v-icon v-if="isEditMode" name="drag_indicator" class="drag-handle" size="small" />
-										<v-icon name="description" size="small" />
-										<span class="workflow-title">{{ workflow.title }}</span>
-									</div>
-										<button
-											v-if="isEditMode"
-											@click.stop="removeWorkflow(phase.id, workflow.id)"
-											class="remove-workflow-btn"
-											title="Remove Workflow"
-										>
-											<v-icon name="close" size="small" />
-										</button>
-									</div>
-								</div>
-							</template>
-						</draggable>
+					<!-- Controls - Hide the default controls -->
+					<Controls :show-zoom="false" :show-fit-view="false" :show-interactive="false">
+					<!-- We'll move all functionality to our custom cluster -->
+					</Controls>
+
+					<!-- Custom Control Cluster Overlay -->
+					<div class="control-cluster">
+						<div class="control-stack">
+							<!-- Main Controls -->
+							<div class="expanded-icons">
+								<button class="control-icon save-icon" :disabled="isSaving" @click="freezeCurrentState">
+									<v-icon name="save" />
+								</button>
+								<button class="control-icon edit-mode-icon" @click="isEditMode = !isEditMode">
+									<v-icon :name="isEditMode ? 'visibility' : 'edit'" />
+								</button>
+								<button class="control-icon" @click="fitView">
+									<v-icon name="center_focus_strong" />
+								</button>
+								<button class="control-icon" :disabled="!isEditMode" @click="resetToDefaultLayout">
+									<v-icon name="restart_alt" />
+								</button>
+								<button class="control-icon" :disabled="!isEditMode" @click="zoomIn">
+									<v-icon name="add" />
+								</button>
+								<button class="control-icon" :disabled="!isEditMode" @click="zoomOut">
+									<v-icon name="remove" />
+								</button>
+							</div>
+						</div>
 					</div>
-				</div>
-			</div>
-		</div>
 
-		<!-- Add Workflow Modal -->
-		<div v-if="showAddWorkflowModal" class="modal-overlay" @click="closeAddWorkflowModal">
-			<div class="modal-content" @click.stop>
-				<div class="modal-header">
-					<h3>Add Workflow to {{ getPhaseTitle(selectedPhaseId) }}</h3>
-					<button @click="closeAddWorkflowModal" class="modal-close-btn">
-						<v-icon name="close" />
-					</button>
-				</div>
-				<div class="modal-body">
-					<div class="form-field">
-						<label>Select Workflow:</label>
-						<select v-model="selectedWorkflowId" class="workflow-select">
-							<option value="">Choose a workflow</option>
-							<option 
-								v-for="workflow in availableWorkflows" 
-								:key="workflow.id" 
-								:value="workflow.id"
+		</VueFlow>
+	</div>
+
+
+<!-- Swim Lanes Section -->
+<div class="swim-lanes-container">
+	<div v-for="phase in phases" :key="phase.id" class="swim-lane">
+		<div class="swim-lane-header" :style="{ backgroundColor: phase.color }">
+			<h3>{{ phase.title }}</h3>
+			<span v-if="isEditMode">
+				<!-- Add Workflow Button -->
+				<button 
+					@click="openAddWorkflowModal(phase.id)"
+					class="add-workflow-btn"
+				>
+					<v-icon name="add" size="small" />
+				</button>
+			</span>
+		</div>
+		<div class="swim-lane-content">
+			<div class="workflow-management">
+				<!-- Draggable Workflow Items -->
+				<draggable
+					v-model="phase.workflows"
+					class="workflow-items"
+					group="workflows"
+					@change="onWorkflowReorder(phase.id, $event)"
+					item-key="id"
+					:animation="200"
+					ghost-class="workflow-ghost"
+					chosen-class="workflow-chosen"
+					drag-class="workflow-drag"
+					:disabled="!isEditMode"
+				>
+					<template #item="{ element: workflow }">
+						<div class="workflow-item-container">
+							<div
+								class="workflow-item"
+								@click="openWorkflow(workflow.workflowId || workflow.id)"
+								v-if="workflow.workflowId || workflow.id"
 							>
-								{{ workflow.name }}
-							</option>
-						</select>
-					</div>
-					<div class="form-field">
-						<label>Custom Label (optional):</label>
-						<v-input
-							v-model="customWorkflowLabel"
-							placeholder="Enter custom label or leave empty to use workflow name"
-						/>
-					</div>
-				</div>
-				<div class="modal-footer">
-					<button @click="closeAddWorkflowModal" class="btn-secondary">
-						Cancel
-					</button>
-					<button 
-						@click="addWorkflowToPhase" 
-						:disabled="!selectedWorkflowId"
-						class="btn-primary"
-					>
-						Add Workflow
-					</button>
-				</div>
-			</div>
-		</div>
-
-		<!-- Edit Node Modal -->
-		<div v-if="showNodeEditModal" class="modal-overlay" @click="closeNodeEditModal">
-			<div class="modal-content" @click.stop>
-				<div class="modal-header">
-					<h3>Edit Node</h3>
-					<button @click="closeNodeEditModal" class="modal-close-btn">
-						<v-icon name="close" />
-					</button>
-				</div>
-				<div class="modal-body">
-					<div class="form-field">
-						<label>Custom Label (optional):</label>
-						<v-input
-							v-model="nodeCustomLabel"
-							placeholder="Enter custom label or leave empty to use default"
-						/>
-					</div>
-					<div class="form-field">
-						<label>Description (optional):</label>
-						<textarea
-							v-model="nodeDescription"
-							class="node-description-input"
-							placeholder="Enter node description"
-							rows="4"
-						></textarea>
-					</div>
-				</div>
-				<div class="modal-footer">
-					<button @click="closeNodeEditModal" class="btn-secondary">
-						Cancel
-					</button>
-					<button 
-						@click="saveNodeCustomization"
-						class="btn-primary"
-					>
-						Save
-					</button>
-				</div>
+							<div class="workflow-item-content">
+								<v-icon v-if="isEditMode" name="drag_indicator" class="drag-handle" size="small" />
+								<v-icon name="description" size="small" />
+								<span class="workflow-title">{{ workflow.title }}</span>
+							</div>
+								<button
+									v-if="isEditMode"
+									@click.stop="removeWorkflow(phase.id, workflow.id)"
+									class="remove-workflow-btn"
+									title="Remove Workflow"
+								>
+									<v-icon name="close" size="small" />
+								</button>
+							</div>
+						</div>
+					</template>
+				</draggable>
 			</div>
 		</div>
 	</div>
+</div>
+
+<!-- Add Workflow Modal -->
+<div v-if="showAddWorkflowModal" class="modal-overlay" @click="closeAddWorkflowModal">
+	<div class="modal-content" @click.stop>
+		<div class="modal-header">
+			<h3>Add Workflow to {{ getPhaseTitle(selectedPhaseId) }}</h3>
+			<button @click="closeAddWorkflowModal" class="modal-close-btn">
+				<v-icon name="close" />
+			</button>
+		</div>
+		<div class="modal-body">
+			<div class="form-field">
+				<label>Select Workflow:</label>
+				<select v-model="selectedWorkflowId" class="workflow-select">
+					<option value="">Choose a workflow</option>
+					<option 
+						v-for="workflow in availableWorkflows" 
+						:key="workflow.id" 
+						:value="workflow.id"
+					>
+						{{ workflow.name }}
+					</option>
+				</select>
+			</div>
+			<div class="form-field">
+				<label>Custom Label (optional):</label>
+				<v-input
+					v-model="customWorkflowLabel"
+					placeholder="Enter custom label or leave empty to use workflow name"
+				/>
+			</div>
+		</div>
+		<div class="modal-footer">
+			<button @click="closeAddWorkflowModal" class="btn-secondary">
+				Cancel
+			</button>
+			<button 
+				@click="addWorkflowToPhase" 
+				:disabled="!selectedWorkflowId"
+				class="btn-primary"
+			>
+				Add Workflow
+			</button>
+		</div>
+	</div>
+</div>
+
+<!-- Edit Node Modal -->
+<div v-if="showNodeEditModal" class="modal-overlay" @click="closeNodeEditModal">
+	<div class="modal-content" @click.stop>
+		<div class="modal-header">
+			<h3>Edit Node</h3>
+			<button @click="closeNodeEditModal" class="modal-close-btn">
+				<v-icon name="close" />
+			</button>
+		</div>
+		<div class="modal-body">
+			<div class="form-field">
+				<label>Custom Label (optional):</label>
+				<v-input
+					v-model="nodeCustomLabel"
+					placeholder="Enter custom label or leave empty to use default"
+				/>
+			</div>
+			<div class="form-field">
+				<label>Description (optional):</label>
+				<textarea
+					v-model="nodeDescription"
+					class="node-description-input"
+					placeholder="Enter node description"
+					rows="4"
+				></textarea>
+			</div>
+		</div>
+		<div class="modal-footer">
+			<button @click="closeNodeEditModal" class="btn-secondary">
+				Cancel
+			</button>
+			<button 
+				@click="saveNodeCustomization"
+				class="btn-primary"
+			>
+				Save
+			</button>
+		</div>
+	</div>
+</div>
+	</div>
+	</private-view>
 </template>
 
 <script setup lang="ts">
@@ -294,6 +289,7 @@ import draggable from 'vuedraggable';
 import PhaseNode from './components/PhaseNode.vue';
 import DecisionNode from './components/DecisionNode.vue';
 import CustomHeader from './components/CustomHeader.vue';
+import NavigationSidebar from './components/NavigationSidebar.vue';
 import { useApi } from '@directus/extensions-sdk';
 
 // Define props that match what Directus passes to editors
@@ -376,6 +372,7 @@ const api = useApi();
 // Programs data
 const programs = ref<Array<{ id: string | number; name: string }>>([]);
 const selectedProgram = ref<string | number | null>(null);
+const loadingPrograms = ref(false);
 
 // Workflow links data
 const workflowLinks = ref<Array<any>>([]);
@@ -569,7 +566,8 @@ async function loadSavedState() {
 }
 
 // Function to fetch programs from the collection
-async function fetchPrograms() {
+async function loadPrograms() {
+	loadingPrograms.value = true;
 	try {
 		const response = await api.get('/items/programs', {
 			params: {
@@ -578,7 +576,6 @@ async function fetchPrograms() {
 			},
 		});
 		programs.value = response.data.data || [];
-		
 		// Set default program if available
 		if (programs.value.length > 0 && !selectedProgram.value && programs.value[0]) {
 			selectedProgram.value = programs.value[0].id;
@@ -586,6 +583,8 @@ async function fetchPrograms() {
 	} catch (error) {
 		console.error('[API] Error fetching programs:', error);
 		programs.value = [];
+	} finally {
+		loadingPrograms.value = false;
 	}
 }
 
@@ -1096,13 +1095,13 @@ function resetToDefaultLayout() {
 
 		
 		// Hide the default Directus header
-		const headerBar = document.querySelector('.header-bar');
-		if (headerBar) {
-			(headerBar as HTMLElement).style.display = 'none';
-		}
+		// const headerBar = document.querySelector('.header-bar');
+		// if (headerBar) {
+		// 	(headerBar as HTMLElement).style.display = 'none';
+		// }
 		
 		// Fetch programs and available workflows first
-		await fetchPrograms();
+		await loadPrograms();
 		await fetchAvailableWorkflows();
 		
 		// Then load saved state from props or item data
@@ -1129,10 +1128,9 @@ function resetToDefaultLayout() {
 
 <style scoped>
 .process-map-container {
-	display: flex;
-	flex-direction: column;
-	height: 100vh;
-	background: var(--theme--background, #f8fafc);
+	height: 100%;
+	padding: var(--content-padding);
+	padding-top: 0;
 }
 
 .process-map-header {
@@ -1217,15 +1215,14 @@ function resetToDefaultLayout() {
 }
 
 .canvas-container {
-	flex: 1;
-	height: 60vh;
+	height: calc(60vh - 200px);
 	position: relative;
 	border-bottom: 2px solid var(--theme--border-color, #e5e7eb);
 }
 
 /* Adjust layout when custom header is active */
 .custom-header-active .canvas-container {
-	height: calc(100vh - 200px); /* Adjust for header height */
+	height: calc(100% - 200px); /* Adjust for header height */
 }
 
 .vue-flow-canvas {
@@ -1236,7 +1233,7 @@ function resetToDefaultLayout() {
 .swim-lanes-container {
 	display: grid;
 	grid-template-columns: 1fr 1fr 2fr 1fr;
-	height: 40vh;
+	height: calc(40vh - 200px);
 	background: var(--theme--background, white);
 	border-top: 1px solid var(--theme--border-color, #e5e7eb);
 }
@@ -1446,18 +1443,18 @@ function resetToDefaultLayout() {
 }
 
 /* Hide the default Directus header when using custom header */
-:deep(.header-bar) {
+/* :deep(.header-bar) {
 	display: none !important;
-}
+} */
 
 /* Alternative selectors to ensure header is hidden */
-:deep(header.header-bar) {
+/* :deep(header.header-bar) {
 	display: none !important;
 }
 
 :deep(.private-view .header-bar) {
 	display: none !important;
-}
+} */
 
 /* Loading Overlay */
 .loading-overlay {
@@ -1626,19 +1623,6 @@ function resetToDefaultLayout() {
 }
 
 /* Program Selector Overlay - Top Right */
-.program-selector-overlay {
-	position: absolute;
-	top: 20px;
-	right: 20px;
-	z-index: 1000;
-	background: var(--theme--background-accent, rgba(255, 255, 255, 0.95));
-	backdrop-filter: blur(8px);
-	border: 1px solid var(--theme--border-color);
-	border-radius: var(--theme--border-radius);
-	box-shadow: 0 4px 12px var(--theme--shadow-accent, rgba(0, 0, 0, 0.15));
-	padding: 16px;
-	min-width: 280px;
-}
 
 .program-selector-compact {
 	display: flex;

@@ -1,5 +1,5 @@
 {
-	"name": "report-designer-module",
+	"name": "dashboard-module",
 	"description": "Please enter a description for your extension",
 	"icon": "extension",
 	"version": "1.0.0",
@@ -20,18 +20,13 @@
 	},
 	"scripts": {
 		"build": "directus-extension build",
-		"postbuild": "cp package.json dist/",
 		"dev": "directus-extension build -w --no-minify",
 		"link": "directus-extension link",
 		"validate": "directus-extension validate"
 	},
 	"devDependencies": {
-		"@directus/extensions-sdk": "16.0.1",
-		"typescript": "^5.9.2",
+		"@directus/extensions-sdk": "16.0.2",
+		"typescript": "^5.9.3",
 		"vue": "^3.5.22"
-	},
-	"dependencies": {
-		"@boldreports/javascript-reporting-controls": "^11.1.11",
-		"jquery": "^3.7.1"
 	}
 }

@@ -30,7 +30,7 @@ services:
       - network
 
   directus:
-    image: directus:08102025
+    image: directus/directus:11.12.0
     ports:
       - 8055:8055
     volumes:

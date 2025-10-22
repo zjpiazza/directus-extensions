@@ -426,7 +426,7 @@ onInit(() => {
 // Freeze/Save viewport and node positions
 const isSaving = ref(false);
 
-async function freezeCurrentState() {
+	async function freezeCurrentState() {
 	try {
 		isSaving.value = true;
 		
@@ -467,7 +467,7 @@ async function freezeCurrentState() {
 		newEdits.state = completeState;
 		emit('update:edits', newEdits);
 
-		await api.patch(`/items/${props.collection}`, { 
+		await api.patch(`/items/process_map`, { 
 			state: completeState 
 		});
 		

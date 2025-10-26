@@ -30,7 +30,6 @@ const emit = defineEmits<{
   'update-mode': [mode: 'edit' | 'view'];
   'toggle-follow-mode': [enabled: boolean];
   'toggle-descriptions': [enabled: boolean];
-  'show-diff': [];
 }>();
 
 const handleUpdateFlowName = (name: string) => {
@@ -78,37 +77,10 @@ const breadcrumbs = computed(() => {
 
 <template>
   <div class="custom-header">
-    <!-- Breadcrumb section -->
-    <div class="header-top">
-      <nav class="breadcrumbs">
-        <template v-for="(crumb, index) in breadcrumbs" :key="index">
-          <router-link 
-            v-if="crumb.to" 
-            :to="crumb.to" 
-            class="breadcrumb-link"
-          >
-            {{ crumb.name }}
-          </router-link>
-          <span v-else class="breadcrumb-current">{{ crumb.name }}</span>
-          <span 
-            v-if="index < breadcrumbs.length - 1" 
-            class="breadcrumb-separator"
-          >
-            &gt;
-          </span>
-        </template>
-      </nav>
-    </div>
-
+    
     <!-- Main header section -->
     <div class="header-main">
       <div class="header-left">
-        <router-link 
-          :to="`/content/${collection}`"
-          class="back-button btn btn-secondary"
-        >
-          <v-icon name="arrow_back" />
-        </router-link>
 
         <div class="title-section">
           <h1 class="header-title">{{ title }}</h1>
@@ -170,16 +142,6 @@ const breadcrumbs = computed(() => {
         </div>
 
         <button
-          class="btn btn-secondary"
-          data-test="show-diff-btn"
-          @click="$emit('show-diff')"
-          title="Show diff between current state and server state"
-        >
-          <v-icon name="compare_arrows" />
-          Show Diff
-        </button>
-
-        <button
           v-if="!props.isNew && canEdit"
           class="btn btn-secondary"
           data-test="clone-workflow-btn"
@@ -219,9 +181,9 @@ const breadcrumbs = computed(() => {
 .custom-header {
   background: var(--theme--background);
   border-bottom: 1px solid var(--theme--border-color);
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 100;
+  flex-shrink: 0;
 }
 
 .header-top {
@@ -266,7 +228,7 @@ const breadcrumbs = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 1rem 1.5rem;
-  min-height: 70px;
+  height: 70px;
   background: var(--theme--background);
   color: var(--theme--foreground);
 }

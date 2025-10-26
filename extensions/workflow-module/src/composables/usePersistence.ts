@@ -35,40 +35,23 @@ export function usePersistence(
   const isLoadingInitialData = ref(false);
   const lastEmitVersion = ref('');
 
-  const updateField = (
-    fieldKey: string,
-    value: any,
-    modelValue: Record<string, any>,
-    emit: (event: 'update:modelValue', value: Record<string, any>) => void,
-    saving: boolean
-  ) => {
-    console.log('🔧 updateField called:', {
-      fieldKey,
-      valueType: Array.isArray(value) ? 'array' : typeof value,
-      valueLength: Array.isArray(value) ? value.length : 'N/A',
-      firstItem: Array.isArray(value) ? value[0] : 'N/A',
-      saving,
-      modelValue,
-    });
-    
-    if (saving) {
-      console.log('⚠️ updateField: skipping because saving=true');
-      return;
-    }
+   const updateField = (
+     fieldKey: string,
+     value: any,
+     modelValue: Record<string, any>,
+     emit: (event: 'update:modelValue', value: Record<string, any>) => void,
+     saving: boolean
+   ) => {
+     if (saving) {
+       return;
+     }
 
-    const newEdits = { ...(modelValue || {}) };
-    newEdits[fieldKey] = value;
-    
-    console.log('📤 updateField: emitting update:modelValue:', {
-      fieldKey,
-      newEditsKeys: Object.keys(newEdits),
-      nodesCount: newEdits.nodes?.length,
-      edgesCount: newEdits.edges?.length,
-    });
-    
-    emit('update:modelValue', newEdits);
-    lastEmitVersion.value = JSON.stringify(newEdits);
-  };
+     const newEdits = { ...(modelValue || {}) };
+     newEdits[fieldKey] = value;
+     
+     emit('update:modelValue', newEdits);
+     lastEmitVersion.value = JSON.stringify(newEdits);
+   };
 
   const saveFlow = async (
     primaryKey: string | null | undefined,
@@ -102,38 +85,15 @@ export function usePersistence(
       const effectiveId = savedItemId.value || primaryKey;
       const isCreate = isNew || !effectiveId || effectiveId === '+';
       if (!isCreate && !effectiveId) throw new Error('Missing primary key for update operation');
-      
-      const endpoint = isCreate
-        ? `/items/${options.collection}`
-        : `/items/${options.collection}/${effectiveId}`;
 
-      console.log('💾 SAVE PAYLOAD:', {
-        endpoint,
-        isCreate,
-        payload: {
-          ...payload,
-          nodesCount: payload.nodes?.length,
-          edgesCount: payload.edges?.length,
-          pagesCount: payload.pages?.length,
-        }
-      });
-      
-      console.log('💾 FULL NODE DATA (stringified):', JSON.stringify(payload.nodes.map((n: any) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        label: n.data?.label
-      })), null, 2));
+       const collectionName = 'workflows';
+       const endpoint = isCreate
+         ? `/items/${collectionName}`
+         : `/items/${collectionName}/${effectiveId}`;
 
-      const response = isCreate
-        ? await options.api.post(endpoint, payload)
-        : await options.api.patch(endpoint, payload);
-
-      console.log('✅ SAVE RESPONSE:', {
-        savedId: response?.data?.data?.id || response?.data?.id,
-        responseNodes: response?.data?.data?.nodes?.length || response?.data?.nodes?.length,
-        responseEdges: response?.data?.data?.edges?.length || response?.data?.edges?.length,
-      });
+       const response = isCreate
+         ? await options.api.post(endpoint, payload)
+         : await options.api.patch(endpoint, payload);
 
       const saved = response?.data?.data || response?.data;
       
@@ -192,7 +152,8 @@ export function usePersistence(
         description: item?.description || modelValue?.description || ''
       };
 
-      const endpoint = `/items/${options.collection}`;
+      const collectionName = 'workflows';
+      const endpoint = `/items/${collectionName}`;
       const response = await options.api.post(endpoint, payload);
       const cloned = response?.data?.data || response?.data;
 
@@ -230,23 +191,12 @@ export function usePersistence(
     selectedEdge.value = null;
     
     if (item) {
-      try {
-        console.log('📥 LOADING DATA FROM ITEM:', {
-          hasNodes: !!item.nodes,
-          hasEdges: !!item.edges,
-          hasPages: !!item.pages,
-          hasCurrentPageId: !!item.currentPageId,
-          hasPageViewports: !!item.pageViewports,
-          hasData: !!item.data,
-          nodesCount: item.nodes?.length || item.data?.nodes?.length,
-          edgesCount: item.edges?.length || item.data?.edges?.length,
-        });
-        
-        const nodes = item.nodes || item.data?.nodes || [];
-        const edges = item.edges || item.data?.edges || [];
-        const itemPages = item.pages || item.data?.pages || [];
-        const itemCurrentPageId = item.currentPageId || item.data?.currentPageId || 'root';
-        const itemPageViewports = item.pageViewports || item.data?.pageViewports || {};
+       try {
+         const nodes = item.nodes || item.data?.nodes || [];
+         const edges = item.edges || item.data?.edges || [];
+         const itemPages = item.pages || item.data?.pages || [];
+         const itemCurrentPageId = item.currentPageId || item.data?.currentPageId || 'root';
+         const itemPageViewports = item.pageViewports || item.data?.pageViewports || {};
 
         const validatedNodes = nodes.map((node: Node, index: number) => {
           const cleanClass = (typeof node.class === 'string' && node.class) 

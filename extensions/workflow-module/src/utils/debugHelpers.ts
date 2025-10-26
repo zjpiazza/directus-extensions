@@ -2,7 +2,7 @@ export interface DebugContext {
   [key: string]: any;
 }
 
-const DEBUG_ENABLED = true;
+const DEBUG_ENABLED = false;
 
 export function debugLog(emoji: string, message: string, context?: DebugContext): void {
   if (!DEBUG_ENABLED) return;

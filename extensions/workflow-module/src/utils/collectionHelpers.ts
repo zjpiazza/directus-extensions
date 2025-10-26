@@ -36,6 +36,20 @@ export function useCollectionData() {
     }
   };
 
+  const collectionExists = async (collectionName: string): Promise<boolean> => {
+    try {
+      const response = await api.get('/collections', {
+        params: {
+          fields: ['collection'],
+        }
+      });
+      return response.data.data.some((c: any) => c.collection === collectionName);
+    } catch (error) {
+      console.error('Failed to check if collection exists:', error);
+      return false;
+    }
+  };
+
   const loadWorkflows = async (collectionName: string, currentId?: string) => {
     try {
       const res = await api.get(`/items/${collectionName}`, { 
@@ -60,5 +74,7 @@ export function useCollectionData() {
     availableWorkflows,
     fetchCollections,
     loadWorkflows,
+    collectionExists,
   };
 }
+

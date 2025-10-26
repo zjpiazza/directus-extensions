@@ -10,5 +10,24 @@ export default defineModule({
 			path: '',
 			component: ModuleComponent,
 		},
+		{
+			path: ':id',
+			component: ModuleComponent,
+		},
+	],
+	options: [
+		{
+			field: 'collection',
+			type: 'string',
+			name: 'Workflows Collection',
+			meta: {
+				interface: 'system-collection',
+				options: {
+					includeSystem: false,
+					includeSingleton: false,
+				},
+				width: 'full',
+			},
+		},
 	],
 });

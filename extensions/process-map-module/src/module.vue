@@ -1,12 +1,12 @@
 <template>
 	<private-view title="Process Map">
-		<template #headline>
+		<!-- <template #headline>
 			<v-breadcrumb :items="[{ name: 'Process Map', to: '/process-map' }]" />
 		</template>
 
 		<template #title>
 			<h1 class="type-title">Process Map</h1>
-		</template>
+		</template> -->
 		<template #navigation>
 			<navigation-sidebar
 				:programs="programs"
@@ -426,7 +426,7 @@ onInit(() => {
 // Freeze/Save viewport and node positions
 const isSaving = ref(false);
 
-	async function freezeCurrentState() {
+async function freezeCurrentState() {
 	try {
 		isSaving.value = true;
 		
@@ -462,14 +462,13 @@ const isSaving = ref(false);
 			viewport: viewport,
 		};
 
-		// Emit the update:edits event for Directus editor persistence
+		// Emit the update:edits event for Directus to handle
 		const newEdits = { ...(props.edits || {}) };
 		newEdits.state = completeState;
 		emit('update:edits', newEdits);
-
-		await api.patch(`/items/process_map`, { 
-			state: completeState 
-		});
+		
+		// Emit save event to signal Directus to persist the changes
+		emit('save');
 		
 	} catch (error) {
 		console.error('[SAVE] Failed to save process map state:', error);
@@ -1131,6 +1130,31 @@ function resetToDefaultLayout() {
 	height: 100%;
 	padding: var(--content-padding);
 	padding-top: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.process-map-container::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+}
+
+/* Prevent scrolling on all parent containers */
+:deep(.v-private-view) {
+	overflow: hidden !important;
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+:deep(.v-private-view__content) {
+	overflow: hidden !important;
+}
+
+:deep(.v-private-view__main) {
+	overflow: hidden !important;
 }
 
 .process-map-header {
@@ -2003,5 +2027,49 @@ function resetToDefaultLayout() {
 
 .separator-line-svg text:hover {
 	fill: var(--theme--primary, #7c3aed);
+}
+
+/* Hide scrollbars while maintaining scrollability */
+::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+/* Firefox scrollbar hiding */
+* {
+	scrollbar-width: none;
+}
+
+/* Deep targeting for parent containers */
+:deep(::-webkit-scrollbar) {
+	width: 0;
+	height: 0;
+}
+
+:deep(::-webkit-scrollbar-track) {
+	background: transparent;
+}
+
+:deep(::-webkit-scrollbar-thumb) {
+	background: transparent;
+}
+
+/* Target private-view scrollbar */
+:deep(.v-private-view) {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+:deep(.v-private-view::-webkit-scrollbar) {
+	width: 0;
+	height: 0;
 }
 </style>

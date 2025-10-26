@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted, provide } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, ConnectionMode, useVueFlow } from '@vue-flow/core';
 import type { Node, Edge, EdgeUpdateEvent, Connection } from '@vue-flow/core';
 import { Controls } from '@vue-flow/controls';
@@ -32,6 +33,7 @@ import LabeledEdge from './components/LabeledEdge.vue';
 // Import composables
 import { useWorkflowData } from './composables/useWorkflowData';
 import { useApi } from '@directus/extensions-sdk';
+import { useModuleConfig } from './composables/useModuleConfig';
 
 // Phase 1: State Management Composables
 import { useFlowState } from './composables/useFlowState';
@@ -116,6 +118,17 @@ const canEdit = computed(() => {
 
 // Manual save logic (parent form lifecycle not handling persistence for this editor type)
 const api = useApi();
+
+// Initialize module configuration for standalone module access
+const { workflowsCollection, isInitialized, error: configError, initializeCollection, saveConfig } = useModuleConfig();
+
+// Route handling
+const route = useRoute();
+const router = useRouter();
+const routeWorkflowId = computed(() => {
+  debugLog('Current route:', { path: route.path, params: route.params, fullPath: route.fullPath });
+  return route.params.id as string | undefined;
+});
 
 // Basic notification shim (adjust if real notifications composable becomes available)
 const notifications = {
@@ -253,6 +266,9 @@ const {
   loadWorkflows,
 } = useCollectionData();
 
+// Loading state for workflows
+const loadingWorkflows = ref(false);
+
 // Initialize selected edge state
 const selectedEdge = ref<Edge | null>(null);
 
@@ -302,48 +318,52 @@ const nodeTypes = [
 
 // Computed properties
 const title = computed(() => {
+  const collectionName = props.collectionInfo?.name || props.collection || 'Item';
+  
   if (props.isNew) {
-    return `Creating ${props.collectionInfo?.name || props.collection}`;
+    return `Creating ${collectionName}`;
   }
   
   // Make title singular and mode-aware
   const action = (internalMode.value === 'edit' && !followMode.value) ? 'Editing' : 'Viewing';
-  const itemType = (props.collectionInfo?.name || props.collection).replace(/s$/, ''); // Make singular
+  const itemType = collectionName.replace(/s$/, ''); // Make singular
   return `${action} ${itemType}`;
 });
 
-const hasChanges = computed(() => {
-  console.log('🔍 hasChanges check:', {
-    'props.modelValue': props.modelValue,
-    'edits keys': props.modelValue ? Object.keys(props.modelValue) : [],
-    'edits length': props.modelValue ? Object.keys(props.modelValue).length : 0,
-  });
+const breadcrumbItems = computed(() => {
+  const items: any[] = [{ name: 'Workflow', to: '/workflow' }];
+  
+  if (routeWorkflowId.value) {
+    items.push({
+      name: flowName.value || routeWorkflowId.value,
+      to: `/workflow/${routeWorkflowId.value}`
+    });
+  }
+  
+  return items;
+});
 
+const hasChanges = computed(() => {
   // Name difference should also count as change
   const currentName = flowName.value?.trim();
   const originalName = props.item?.name ?? '';
 
   if (props.isNew && currentName) {
-    console.log('✅ hasChanges: true (isNew and has name)');
     return true;
   }
   if (!props.isNew && currentName && currentName !== originalName) {
-    console.log('✅ hasChanges: true (name changed)');
     return true;
   }
 
   // Primary signal: parent-provided edits
   if (props.modelValue && Object.keys(props.modelValue).length > 0) {
-    console.log('✅ hasChanges: true (props.modelValue has keys)');
     return true;
   }
   // Fallback: compare current flow with original item data using data transformation
   if (hasDataDiverged(props.item, flowNodes.value, flowEdges.value)) {
-    console.log('✅ hasChanges: true (data diverged from original)');
     return true;
   }
   
-  console.log('❌ hasChanges: false (no changes detected)');
   return false;
 });
 
@@ -378,12 +398,7 @@ watch(
 watch(
   () => props.modelValue,
   (newEdits, oldEdits) => {
-    console.log('👀 PROPS.MODELVALUE CHANGED:', {
-      old: oldEdits,
-      new: newEdits,
-      newKeys: newEdits ? Object.keys(newEdits) : [],
-      hasChangesAfterChange: hasChanges.value,
-    });
+    debugLog('parent edits sync', newEdits);
   },
   { deep: true }
 );
@@ -391,24 +406,7 @@ watch(
 // updateField is now provided by usePersistence composable - create wrapper for logging
 // This wrapper binds the required parameters so composables can call it with just (fieldKey, value)
 const boundUpdateField = (fieldKey: string, value: any) => {
-  debugLog('updateField called', fieldKey, value);
-  
-  console.log('📤 EMITTING update:modelValue:', {
-    fieldKey,
-    editsKeys: props.modelValue ? Object.keys(props.modelValue) : [],
-    propsEditsBefore: props.modelValue,
-  });
-  
-  updateField(fieldKey, value, props.modelValue, emit, props.saving);
-  
-  // Check if props.modelValue actually updated after emit
-  nextTick(() => {
-    console.log('📥 AFTER EMIT - props.modelValue:', {
-      propsEdits: props.modelValue,
-      editsKeys: props.modelValue ? Object.keys(props.modelValue) : [],
-      hasChangesValue: hasChanges.value,
-    });
-  });
+   updateField(fieldKey, value, props.modelValue, emit, props.saving);
 };
 
 const saveFlow = async () => {
@@ -486,10 +484,9 @@ const {
       flowName.value = saved.name;
     }
     
-    console.log('✅ Workflow Saved ID:', saved?.id);
+    
     
     // Clear ALL edits since data is now persisted in the database
-    console.log('🧹 Clearing all edits after successful save');
     emit('update:modelValue', {});
     
     // NO refresh needed - in-memory state is already correct after save
@@ -628,23 +625,95 @@ const {
 
 
 
-const handleNavigateToWorkflow = (workflowId: string) => {
+const handleNavigateToWorkflow = async (workflowId: string | number) => {
   if (!workflowId) return;
-  debugLog('navigate-to-workflow requested', workflowId);
-  const target = `/admin/content/${props.collection}/${workflowId}`;
+  debugLog('navigate-to-workflow requested', workflowId.toString());
+
   try {
-    if (window && 'open' in window) {
-      window.open(target, '_self');
-    } else {
-      // Fallback
-      (location as any).assign(target);
+    isLoadingInitialData.value = true;
+
+    // Fetch the workflow data from the API
+    const response = await api.get(`/items/workflows/${workflowId}`);
+    const workflowData = response?.data?.data;
+
+    if (!workflowData) {
+      notifications.add({
+        title: 'Workflow Not Found',
+        text: `Could not load workflow ${workflowId}`,
+        type: 'error'
+      });
+      return;
     }
-  } catch (e) {
-    (location as any).assign(target);
+
+    // Load the workflow data into the canvas
+    debugLog('Loading workflow data:', workflowData);
+
+    // Parse and load the flow data
+    const nodes = workflowData.nodes || workflowData.data?.nodes || [];
+    const edges = workflowData.edges || workflowData.data?.edges || [];
+    const pagesData = workflowData.pages || workflowData.data?.pages || [];
+    const currentPageIdData = workflowData.currentPageId || workflowData.data?.currentPageId || 'root';
+    const pageViewportsData = workflowData.pageViewports || workflowData.data?.pageViewports || {};
+
+    // Update the flow state
+    flowNodes.value = nodes;
+    flowEdges.value = edges;
+    pages.value = pagesData;
+    currentPageId.value = currentPageIdData;
+    pageViewports.value = pageViewportsData;
+
+    // Update the flow name
+    flowName.value = workflowData.name || 'Untitled Workflow';
+
+    // Update page counts
+    updatePageCounts();
+
+    // Fit view to show all nodes
+    nextTick(() => {
+      if (flowNodes.value.length > 0) {
+        fitView({
+          nodes: flowNodes.value.map(n => n.id),
+          duration: 400,
+          padding: { top: 0.15, bottom: 0.15, left: 0.15, right: 0.15 }
+        });
+      }
+    });
+
+    notifications.add({
+      title: 'Workflow Loaded',
+      text: workflowData.name || `Workflow ${workflowId}`,
+      type: 'success'
+    });
+  } catch (e: any) {
+    const message = e?.response?.data?.errors?.[0]?.message || e.message || 'Failed to load workflow';
+    notifications.add({ title: 'Load Failed', text: message, type: 'error' });
+    debugLog('Error loading workflow:', e);
+  } finally {
+    isLoadingInitialData.value = false;
   }
 };
 
 const handleOpenCollection = handleOpenCollectionUtil;
+
+// Navigate to workflow with URL update
+const handleNavigateToWorkflowWithRoute = (workflowId: string | number) => {
+  const workflowIdStr = workflowId.toString();
+  debugLog('Navigating to workflow with route:', workflowIdStr);
+  router.push(`/workflow/${workflowIdStr}`);
+};
+
+// Handle refresh workflows
+const handleRefreshWorkflows = async () => {
+  loadingWorkflows.value = true;
+  try {
+    const collectionToUse = props.collection || workflowsCollection.value;
+    if (collectionToUse) {
+      await loadWorkflows(collectionToUse, props.primaryKey?.toString());
+    }
+  } finally {
+    loadingWorkflows.value = false;
+  }
+};
 
 // Page navigation handlers
 const handleNavigateToPage = (pageId: string) => {
@@ -759,9 +828,29 @@ const deleteSelectedNode = deleteSelectedNodeFromComposable;
 
 
 // Load workflows and collections when primaryKey changes
-watch(() => props.primaryKey, () => {
-  // loadWorkflows() from useCollectionData handles loading other workflows
+watch(() => props.primaryKey, async () => {
+  // Load workflows for the collection
+  const collectionToUse = props.collection || workflowsCollection.value;
+  if (collectionToUse) {
+    loadingWorkflows.value = true;
+    try {
+      await loadWorkflows(collectionToUse, props.primaryKey?.toString());
+    } finally {
+      loadingWorkflows.value = false;
+    }
+  }
   fetchCollections();
+}, { immediate: true });
+
+// Load workflow from URL if ID is present
+watch(() => routeWorkflowId.value, async (workflowId) => {
+  if (workflowId && workflowId !== props.primaryKey?.toString()) {
+    debugLog('Loading workflow from URL:', workflowId);
+    await handleNavigateToWorkflow(workflowId);
+    
+    // Update the URL to use the base path (optional - prevents nested IDs)
+    // router.replace({ params: { id: undefined } });
+  }
 }, { immediate: true });
 
 provide(WORKFLOWS_KEY, availableWorkflows);
@@ -778,15 +867,18 @@ provide(UPDATE_NODE_KEY, (nodeId: string, updates: any) => {
 });
 
 // Lifecycle hooks
-onMounted(() => {
+onMounted(async () => {
+  // Initialize module config if accessed as standalone module
+  if (!props.collection && isInitialized.value === false) {
+    await initializeCollection();
+  }
+  
   // Hide the default Directus header when using custom headers
   const headerBar = document.querySelector('.header-bar');
   if (headerBar) {
     (headerBar as HTMLElement).style.display = 'none';
   }
-  
-
-  
+   
   // Add listener for page enter events
   document.addEventListener('enter-page', (event: any) => {
     if (event.detail?.pageId) {
@@ -808,86 +900,6 @@ onUnmounted(() => {
     }
   });
 });
-
-// Show Diff function for debugging
-const showDiff = () => {
-  console.group('🔍 Workflow State Diff');
-  
-  // Current state
-  const currentState = createFlowDataStructure(
-    flowNodes.value,
-    flowEdges.value,
-    pages.value,
-    currentPageId.value,
-    pageViewports.value
-  );
-  
-  // Server state
-  const serverState = {
-    nodes: props.item?.nodes || props.item?.data?.nodes || [],
-    edges: props.item?.edges || props.item?.data?.edges || [],
-    pages: props.item?.pages || props.item?.data?.pages || [],
-    currentPageId: props.item?.currentPageId || props.item?.data?.currentPageId || 'root',
-    pageViewports: props.item?.pageViewports || props.item?.data?.pageViewports || {}
-  };
-  
-  console.log('📊 Current Workflow State:', {
-    nodes: currentState.nodes.length,
-    edges: currentState.edges.length,
-    pages: currentState.pages.length,
-    currentPageId: currentState.currentPageId,
-    data: currentState,
-  });
-  
-  console.log('💾 Server Workflow State:', {
-    nodes: serverState?.nodes?.length || 0,
-    edges: serverState?.edges?.length || 0,
-    pages: serverState?.pages?.length || 0,
-    currentPageId: serverState?.currentPageId,
-    data: serverState,
-  });
-  
-  // Compare states
-  const comparison = compareFlowData(
-    { nodes: currentState.nodes, edges: currentState.edges },
-    serverState
-  );
-  
-  console.log('🔄 Comparison:', {
-    nodesMatch: comparison.nodesMatch,
-    edgesMatch: comparison.edgesMatch,
-    hasChanges: hasChanges.value,
-    hasDiverged: hasDataDiverged(serverState, flowNodes.value, flowEdges.value),
-  });
-  
-  // Detailed diff for nodes
-  if (!comparison.nodesMatch) {
-    console.log('❌ Nodes differ:');
-    console.log('Current nodes:', currentState.nodes);
-    console.log('Server nodes:', serverState?.nodes || []);
-  } else {
-    console.log('✅ Nodes match');
-  }
-  
-  // Detailed diff for edges
-  if (!comparison.edgesMatch) {
-    console.log('❌ Edges differ:');
-    console.log('Current edges:', currentState.edges);
-    console.log('Server edges:', serverState?.edges || []);
-  } else {
-    console.log('✅ Edges match');
-  }
-  
-  console.log('📝 Additional Info:', {
-    'props.item': props.item,
-    'props.modelValue': props.modelValue,
-    'flowName.value': flowName.value,
-    'props.item.name': props.item?.name,
-    'isNew': props.isNew,
-  });
-  
-  console.groupEnd();
-};
 
 // Initialize data watchers composable
 useDataWatchers({
@@ -931,13 +943,23 @@ useDataWatchers({
 
 <template>
 	<private-view title="Workflow">
-		<template #headline>
-			<v-breadcrumb :items="[{ name: 'Workflow', to: '/workflow-module' }]" />
+		<!-- <template #headline>
+			<v-breadcrumb :items="breadcrumbItems" />
 		</template>
 
 		<template #title>
 			<h1 class="type-title">Workflow</h1>
-		</template>
+		</template> -->
+
+    <template #navigation>
+      <navigation-sidebar
+        :workflows="availableWorkflows"
+        :loading="loadingWorkflows"
+        :current-workflow-id="props.primaryKey?.toString() || null"
+        @select="handleNavigateToWorkflowWithRoute"
+        @refresh="handleRefreshWorkflows"
+      />
+    </template>
 
 		<div class="workflows-editor">
 			<!-- Custom Header -->
@@ -956,17 +978,16 @@ useDataWatchers({
 				:can-edit="canEdit"
 				:follow-mode="followMode"
 				:show-descriptions="showDescriptions"
-				@save="saveFlow"
-				@delete="() => emit('delete')"
-				@archive="() => emit('archive')"
-				@save-as-copy="() => emit('save-as-copy')"
-				@clone-workflow="cloneWorkflow"
-				@update-flow-name="handleUpdateFlowName"
-				@update-mode="handleModeChange"
-				@toggle-follow-mode="setFollowMode"
-				@toggle-descriptions="toggleDescriptions"
-				@show-diff="showDiff"
-			/>
+			@save="saveFlow"
+			@delete="() => emit('delete')"
+			@archive="() => emit('archive')"
+			@save-as-copy="() => emit('save-as-copy')"
+			@clone-workflow="cloneWorkflow"
+			@update-flow-name="handleUpdateFlowName"
+			@update-mode="handleModeChange"
+			@toggle-follow-mode="setFollowMode"
+			@toggle-descriptions="toggleDescriptions"
+		/>
 
 			<!-- Main Editor Layout -->
 			<div class="editor-layout" :class="layoutClasses">
@@ -1128,13 +1149,13 @@ useDataWatchers({
   background: var(--theme--background, #ffffff);
   padding: var(--content-padding);
   padding-top: 0;
+  overflow: hidden;
 }
 
 .editor-layout {
   flex: 1;
   display: grid;
   grid-template-columns: 250px 1fr 300px;
-  height: calc(100% - 150px); /* Adjust based on new header height with breadcrumbs */
   overflow: hidden;
   transition: grid-template-columns 0.3s ease;
 }
@@ -1396,5 +1417,61 @@ useDataWatchers({
   }
 }
 
+/* Hide scrollbars while maintaining scrollability */
+::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+/* Firefox scrollbar hiding */
+* {
+	scrollbar-width: none;
+}
+
+/* Deep targeting for parent containers */
+:deep(::-webkit-scrollbar) {
+	width: 0;
+	height: 0;
+}
+
+:deep(::-webkit-scrollbar-track) {
+	background: transparent;
+}
+
+:deep(::-webkit-scrollbar-thumb) {
+	background: transparent;
+}
+
+/* Target private-view scrollbar */
+:deep(.v-private-view) {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+:deep(.v-private-view::-webkit-scrollbar) {
+	width: 0;
+	height: 0;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+/* Firefox scrollbar hiding */
+* {
+	scrollbar-width: none;
+}
 
 </style>

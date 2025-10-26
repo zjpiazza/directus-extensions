@@ -101,27 +101,37 @@
 					<!-- Custom Control Cluster Overlay -->
 					<div class="control-cluster">
 						<div class="control-stack">
-							<!-- Main Controls -->
-							<div class="expanded-icons">
-								<button class="control-icon save-icon" :disabled="isSaving" @click="freezeCurrentState">
+							<!-- Expanded Controls -->
+							<div v-if="isControlsExpanded" class="expanded-icons">
+								<button class="control-icon save-icon" :disabled="isSaving" @click="freezeCurrentState" title="Save State">
 									<v-icon name="save" />
 								</button>
-								<button class="control-icon edit-mode-icon" @click="isEditMode = !isEditMode">
+								<button class="control-icon edit-mode-icon" @click="isEditMode = !isEditMode" :title="isEditMode ? 'Switch to View Mode' : 'Switch to Edit Mode'">
 									<v-icon :name="isEditMode ? 'visibility' : 'edit'" />
 								</button>
-								<button class="control-icon" @click="fitView">
+								<button class="control-icon" @click="fitView" title="Fit View">
 									<v-icon name="center_focus_strong" />
 								</button>
-								<button class="control-icon" :disabled="!isEditMode" @click="resetToDefaultLayout">
+								<button class="control-icon" :disabled="!isEditMode" @click="resetToDefaultLayout" title="Reset Layout">
 									<v-icon name="restart_alt" />
 								</button>
-								<button class="control-icon" :disabled="!isEditMode" @click="zoomIn">
+								<button class="control-icon" :disabled="!isEditMode" @click="zoomIn" title="Zoom In">
 									<v-icon name="add" />
 								</button>
-								<button class="control-icon" :disabled="!isEditMode" @click="zoomOut">
+								<button class="control-icon" :disabled="!isEditMode" @click="zoomOut" title="Zoom Out">
 									<v-icon name="remove" />
 								</button>
 							</div>
+
+							<!-- Gear Icon Toggle -->
+							<button
+								class="gear-icon"
+								@click="isControlsExpanded = !isControlsExpanded"
+								:class="{ 'expanded': isControlsExpanded }"
+								title="Toggle Controls"
+							>
+								<v-icon name="settings" />
+							</button>
 						</div>
 					</div>
 
@@ -429,10 +439,10 @@ const isSaving = ref(false);
 async function freezeCurrentState() {
 	try {
 		isSaving.value = true;
-		
+
 		// Get current viewport state
 		const viewport = getViewport();
-		
+
 		// Prepare the complete state data
 		const completeState = {
 			nodes: flowNodes.value.map(node => ({
@@ -442,6 +452,7 @@ async function freezeCurrentState() {
 				data: { ...node.data }
 			})),
 			edges: flowEdges.value.map(edge => ({
+				...edge,
 				id: edge.id,
 				source: edge.source,
 				target: edge.target,
@@ -451,8 +462,7 @@ async function freezeCurrentState() {
 				targetHandle: edge.targetHandle,
 				markerEnd: edge.markerEnd,
 				animated: edge.animated,
-				style: edge.style,
-				...edge
+				style: edge.style
 			})),
 			phases: phases.value,
 			selectedProgram: selectedProgram.value,
@@ -462,14 +472,23 @@ async function freezeCurrentState() {
 			viewport: viewport,
 		};
 
-		// Emit the update:edits event for Directus to handle
-		const newEdits = { ...(props.edits || {}) };
-		newEdits.state = completeState;
-		emit('update:edits', newEdits);
-		
-		// Emit save event to signal Directus to persist the changes
-		emit('save');
-		
+		console.log('[SAVE] Freezing state with nodes:', completeState.nodes.length, 'edges:', completeState.edges.length);
+		console.log('[SAVE] Node positions:', completeState.nodes.map((n: any) => ({ id: n.id, pos: n.position })));
+
+		// Save to the process_map singleton collection
+		try {
+			console.log('[SAVE] Saving to process_map singleton collection');
+
+			const response = await api.patch('/items/process_map', {
+				state: completeState
+			});
+
+			console.log('[SAVE] API response:', response);
+			console.log('[SAVE] Successfully saved process map state');
+		} catch (error) {
+			console.error('[SAVE] Failed to save process map state:', error);
+		}
+
 	} catch (error) {
 		console.error('[SAVE] Failed to save process map state:', error);
 	} finally {
@@ -480,39 +499,55 @@ async function freezeCurrentState() {
 // Load saved state if it exists
 async function loadSavedState() {
 	try {
-		// First try to load from props.edits.state (pending changes)
-		if (props.edits?.state && Object.keys(props.edits.state).length > 0) {
-			const savedData = props.edits.state;
-			
-			if (savedData.nodes) flowNodes.value = savedData.nodes;
-			if (savedData.edges) flowEdges.value = savedData.edges;
-			if (savedData.selectedProgram) selectedProgram.value = savedData.selectedProgram;
-			if (savedData.separatorText) separatorText.value = savedData.separatorText;
-			
-			// Load workflow links from saved state
-			if (savedData.programWorkflowLinks) {
-				programWorkflowLinks.value = savedData.programWorkflowLinks;
-				applyPhasesForCurrentProgram();
-			} else if (savedData.workflowLinks) {
-				// Backward compatibility
-				programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
-				applyPhasesForCurrentProgram();
-			} else if (savedData.phases) {
-				phases.value = savedData.phases;
-				syncProgramFromPhases();
-			} else {
-				initializeDefaultPhases();
-				syncProgramFromPhases();
+		console.log('[LOAD] Starting loadSavedState');
+
+		// For singleton collections, fetch from the API
+		try {
+			console.log('[LOAD] Fetching from process_map singleton collection');
+			const response = await api.get('/items/process_map');
+
+			if (response?.data?.state) {
+				const savedData = response.data.state;
+				console.log('[LOAD] Found data in process_map singleton');
+				console.log('[LOAD] Nodes count:', savedData.nodes?.length);
+				console.log('[LOAD] Node positions:', savedData.nodes?.map((n: any) => ({ id: n.id, pos: n.position })));
+
+				if (savedData.nodes) {
+					console.log('[LOAD] Setting flowNodes to saved data');
+					flowNodes.value = savedData.nodes;
+					console.log('[LOAD] After setting, flowNodes.value:', flowNodes.value.map((n: any) => ({ id: n.id, pos: n.position })));
+				}
+				if (savedData.edges) flowEdges.value = savedData.edges;
+				if (savedData.selectedProgram) selectedProgram.value = savedData.selectedProgram;
+				if (savedData.separatorText) separatorText.value = savedData.separatorText;
+
+				// Load workflow links from saved state
+				if (savedData.programWorkflowLinks) {
+					programWorkflowLinks.value = savedData.programWorkflowLinks;
+					applyPhasesForCurrentProgram();
+				} else if (savedData.workflowLinks) {
+					// Backward compatibility
+					programWorkflowLinks.value[getProgramKey(savedData.selectedProgram)] = savedData.workflowLinks;
+					applyPhasesForCurrentProgram();
+				} else if (savedData.phases) {
+					phases.value = savedData.phases;
+					syncProgramFromPhases();
+				} else {
+					initializeDefaultPhases();
+					syncProgramFromPhases();
+				}
+
+				if (savedData.programNodeDescriptions) {
+					programNodeDescriptions.value = savedData.programNodeDescriptions;
+					applyNodeCustomizations();
+				}
+
+				if (savedData.viewport) setViewport(savedData.viewport);
+				console.log('[LOAD] Successfully loaded from process_map singleton');
+				return;
 			}
-			
-			if (savedData.programNodeDescriptions) {
-				programNodeDescriptions.value = savedData.programNodeDescriptions;
-				applyNodeCustomizations();
-			}
-			
-			if (savedData.viewport) setViewport(savedData.viewport);
-			console.log('[LOAD] Loaded from props.edits.state');
-			return;
+		} catch (error) {
+			console.log('[LOAD] No saved state in process_map singleton or error fetching:', error);
 		}
 
 		// Fallback: try to load from item data
@@ -665,12 +700,35 @@ const flowEdges = ref<Edge[]>([
 watch(() => props.edits?.state, (newVal) => {
 	console.log('[WATCH] props.edits.state changed:', newVal ? 'has data' : 'empty');
 	if (newVal && typeof newVal === 'object') {
+		console.log('[WATCH] Loading nodes:', newVal.nodes?.length);
+		console.log('[WATCH] Node positions:', newVal.nodes?.map((n: any) => ({ id: n.id, pos: n.position })));
 		if (newVal.nodes) flowNodes.value = newVal.nodes || [];
 		if (newVal.edges) flowEdges.value = newVal.edges || [];
 		if (newVal.phases) phases.value = newVal.phases || [];
 		if (newVal.selectedProgram) selectedProgram.value = newVal.selectedProgram;
 		if (newVal.separatorText) separatorText.value = newVal.separatorText;
 		if (newVal.viewport) {
+			console.log('[WATCH] Setting viewport:', newVal.viewport);
+			setTimeout(() => {
+				setViewport(newVal.viewport);
+			}, 100);
+		}
+	}
+}, { deep: true, immediate: true });
+
+// Also watch props.item.state for when data is loaded from database
+watch(() => props.item?.state, (newVal) => {
+	console.log('[WATCH] props.item.state changed:', newVal ? 'has data' : 'empty');
+	if (newVal && typeof newVal === 'object' && Object.keys(newVal).length > 0) {
+		console.log('[WATCH] Loading from item.state - nodes:', newVal.nodes?.length);
+		console.log('[WATCH] Node positions:', newVal.nodes?.map((n: any) => ({ id: n.id, pos: n.position })));
+		if (newVal.nodes) flowNodes.value = newVal.nodes || [];
+		if (newVal.edges) flowEdges.value = newVal.edges || [];
+		if (newVal.phases) phases.value = newVal.phases || [];
+		if (newVal.selectedProgram) selectedProgram.value = newVal.selectedProgram;
+		if (newVal.separatorText) separatorText.value = newVal.separatorText;
+		if (newVal.viewport) {
+			console.log('[WATCH] Setting viewport from item:', newVal.viewport);
 			setTimeout(() => {
 				setViewport(newVal.viewport);
 			}, 100);
@@ -1092,19 +1150,13 @@ function resetToDefaultLayout() {
 		// Set initializing state
 		isInitializing.value = true;
 
-		
-		// Hide the default Directus header
-		// const headerBar = document.querySelector('.header-bar');
-		// if (headerBar) {
-		// 	(headerBar as HTMLElement).style.display = 'none';
-		// }
-		
 		// Fetch programs and available workflows first
+		// Load saved state FIRST before anything else
+		await loadSavedState();
+
+		// Then fetch programs and available workflows
 		await loadPrograms();
 		await fetchAvailableWorkflows();
-		
-		// Then load saved state from props or item data
-		await loadSavedState();
 		// After loading, ensure the current program’s phases are applied
 		applyPhasesForCurrentProgram();
 		
@@ -1239,14 +1291,10 @@ function resetToDefaultLayout() {
 }
 
 .canvas-container {
-	height: calc(60vh - 200px);
+	flex: 1;
+	min-height: 0;
 	position: relative;
 	border-bottom: 2px solid var(--theme--border-color, #e5e7eb);
-}
-
-/* Adjust layout when custom header is active */
-.custom-header-active .canvas-container {
-	height: calc(100% - 200px); /* Adjust for header height */
 }
 
 .vue-flow-canvas {
@@ -1257,9 +1305,11 @@ function resetToDefaultLayout() {
 .swim-lanes-container {
 	display: grid;
 	grid-template-columns: 1fr 1fr 2fr 1fr;
-	height: calc(40vh - 200px);
+	flex: 1;
+	min-height: 0;
 	background: var(--theme--background, white);
 	border-top: 1px solid var(--theme--border-color, #e5e7eb);
+	overflow: hidden;
 }
 
 .swim-lane {
@@ -1466,19 +1516,13 @@ function resetToDefaultLayout() {
 	font-size: 16px;
 }
 
-/* Hide the default Directus header when using custom header */
-/* :deep(.header-bar) {
+/* Hide the default Directus header when using custom header - scoped to this module only */
+:deep(.header-bar) {
 	display: none !important;
-} */
-
-/* Alternative selectors to ensure header is hidden */
-/* :deep(header.header-bar) {
-	display: none !important;
+	visibility: hidden !important;
+	height: 0 !important;
+	overflow: hidden !important;
 }
-
-:deep(.private-view .header-bar) {
-	display: none !important;
-} */
 
 /* Loading Overlay */
 .loading-overlay {
@@ -1542,17 +1586,28 @@ function resetToDefaultLayout() {
 	display: flex;
 	flex-direction: column;
 	gap: 8px;
-	animation: slideUpFadeIn 0.3s ease forwards;
+	animation: slideUpFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 @keyframes slideUpFadeIn {
 	from {
 		opacity: 0;
-		transform: translateY(20px);
+		transform: translateY(20px) scale(0.9);
 	}
 	to {
 		opacity: 1;
-		transform: translateY(0);
+		transform: translateY(0) scale(1);
+	}
+}
+
+@keyframes slideDownFadeOut {
+	from {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: translateY(20px) scale(0.9);
 	}
 }
 
@@ -1632,14 +1687,27 @@ function resetToDefaultLayout() {
 	border: 1px solid var(--theme--border-color);
 	border-radius: var(--theme--border-radius);
 	cursor: pointer;
-	transition: all 0.2s ease;
+	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	box-shadow: 0 2px 8px var(--theme--shadow, rgba(0, 0, 0, 0.1));
+	padding: 0;
+	margin: 0;
 }
 
 .gear-icon:hover {
 	color: var(--theme--primary);
 	transform: scale(1.1) rotate(90deg);
 	box-shadow: 0 4px 12px var(--theme--shadow-accent, rgba(0, 0, 0, 0.15));
+}
+
+.gear-icon.expanded {
+	background: var(--theme--primary, #0066cc);
+	color: white;
+	transform: rotate(45deg);
+}
+
+.gear-icon.expanded:hover {
+	transform: rotate(45deg) scale(1.1);
+	color: white;
 }
 
 .gear-icon .v-icon {

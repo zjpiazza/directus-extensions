@@ -83,8 +83,13 @@ const breadcrumbs = computed(() => {
       <div class="header-left">
 
         <div class="title-section">
-          <h1 class="header-title">{{ title }}</h1>
-          <div class="flow-name-input">
+          <!-- View Mode: Display as text -->
+          <div v-if="mode === 'view'" class="flow-name-text">
+            {{ flowName || 'Untitled Workflow' }}
+          </div>
+
+          <!-- Edit Mode: Display as input field -->
+          <div v-else class="flow-name-input">
             <input
               :value="flowName"
               placeholder="Enter workflow name..."
@@ -279,6 +284,13 @@ const breadcrumbs = computed(() => {
   font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
+}
+
+.flow-name-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--theme--foreground, #1a1a1a);
+  padding: 0.5rem 0.75rem;
 }
 
 .flow-name-input {

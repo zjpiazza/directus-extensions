@@ -872,20 +872,14 @@ onMounted(async () => {
   if (!props.collection && isInitialized.value === false) {
     await initializeCollection();
   }
-  
-  // Hide the default Directus header when using custom headers
-  const headerBar = document.querySelector('.header-bar');
-  if (headerBar) {
-    (headerBar as HTMLElement).style.display = 'none';
-  }
-   
+
   // Add listener for page enter events
   document.addEventListener('enter-page', (event: any) => {
     if (event.detail?.pageId) {
       handleEnterPage(event.detail.pageId);
     }
   });
-  
+
   // Enable snap to grid
   snapToGrid.value = true;
 });
@@ -943,13 +937,13 @@ useDataWatchers({
 
 <template>
 	<private-view title="Workflow">
-		<!-- <template #headline>
+		<template #headline>
 			<v-breadcrumb :items="breadcrumbItems" />
 		</template>
 
 		<template #title>
 			<h1 class="type-title">Workflow</h1>
-		</template> -->
+		</template>
 
     <template #navigation>
       <navigation-sidebar
@@ -1141,7 +1135,7 @@ useDataWatchers({
 </style>
 
 <style scoped>
-.workflows-editor {
+  .workflows-editor {
   width: 100%;
   height: 100%;
   display: flex;
@@ -1472,6 +1466,14 @@ useDataWatchers({
 /* Firefox scrollbar hiding */
 * {
 	scrollbar-width: none;
+}
+
+/* Hide the default Directus header when using custom header - scoped to this module only */
+:deep(.header-bar) {
+	display: none !important;
+	visibility: hidden !important;
+	height: 0 !important;
+	overflow: hidden !important;
 }
 
 </style>

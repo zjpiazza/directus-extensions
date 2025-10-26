@@ -1,19 +1,57 @@
 # AGENTS.md
 
 ## Project Overview
-The current repository contains multiple Directus extensions using the "editor" extension type. This extension type is added into a forked version of the Directus codebase. The editor extension type overrides the default Vue component when editing an item within a collection.
+The current repository contains multiple Directus extensions. Each extension is a specialized module that extends Directus functionality with custom interfaces, hooks, modules, and other extension types.
 
 ## Extensions
 
-### process-map-editor
-- **Type**: Editor extension for singleton collections
-- **Technology**: Vue Flow for rendering
-- **Purpose**: [Add brief description of what this does]
+### address-completion-interface
+- **Type**: Interface extension
+- **Technology**: Vue.js interface with external API integration
+- **Purpose**: Address completion and validation interface
+- **See**: `extensions/address-completion-interface/AGENTS.md`
 
-### workflows-editor
-- **Type**: Editor extension for standard collections
+### email-bundle
+- **Type**: Bundle extension (interface + hook)
+- **Technology**: Vue.js interface with Node.js hook
+- **Purpose**: Email input field with formatting and server-side validation
+- **See**: `extensions/email-bundle/AGENTS.md`
+
+### email-interface
+- **Type**: Interface extension
+- **Technology**: Vue.js interface
+- **Purpose**: Email input field interface
+- **See**: `extensions/email-interface/AGENTS.md`
+
+### event-sync
+- **Type**: Hook extension
+- **Technology**: Node.js hook
+- **Purpose**: Event synchronization
+- **See**: `extensions/event-sync/AGENTS.md`
+
+### phone-bundle
+- **Type**: Bundle extension (interface + hook)
+- **Technology**: Vue.js interface with Node.js hook
+- **Purpose**: Phone number input field with formatting and server-side validation
+- **See**: `extensions/phone-bundle/AGENTS.md`
+
+### process-map-module
+- **Type**: Module extension
 - **Technology**: Vue Flow for rendering
-- **Purpose**: [Add brief description of what this does]
+- **Purpose**: Process map visualization and editing
+- **See**: `extensions/process-map-module/AGENTS.md`
+
+### report-designer-module
+- **Type**: Module extension
+- **Technology**: Vue.js with report design tools
+- **Purpose**: Report designer interface
+- **See**: `extensions/report-designer-module/AGENTS.md`
+
+### report-viewer
+- **Type**: Module extension
+- **Technology**: Vue.js
+- **Purpose**: Report viewing interface
+- **See**: `extensions/report-viewer/AGENTS.md`
 
 ### ssn-bundle
 - **Type**: Bundle extension (interface + hook)
@@ -22,6 +60,19 @@ The current repository contains multiple Directus extensions using the "editor" 
 - **Components**:
   - Interface: Client-side SSN formatting (XXX-XX-XXXX), optional masking, validation
   - Hook: Server-side validation enforcing 9-digit format on save
+- **See**: `extensions/ssn-bundle/AGENTS.md`
+
+### tenant-hook
+- **Type**: Hook extension
+- **Technology**: Node.js hook
+- **Purpose**: Tenant management and isolation
+- **See**: `extensions/tenant-hook/AGENTS.md`
+
+### workflow-module
+- **Type**: Module extension
+- **Technology**: Vue Flow for rendering
+- **Purpose**: Workflow visualization and editing
+- **See**: `extensions/workflow-module/AGENTS.md`
 
 ## Development Environment
 
@@ -44,23 +95,32 @@ The current repository contains multiple Directus extensions using the "editor" 
 4. Check browser console for any unusual behavior
 
 ### File Structure
-├── process-map-editor/
+```
+extensions/
+├── address-completion-interface/
+├── email-bundle/
+├── email-interface/
+├── event-sync/
+├── phone-bundle/
+├── process-map-module/
+├── report-designer-module/
+├── report-viewer/
+├── ssn-bundle/
+├── tenant-hook/
+└── workflow-module/
+```
 
-│   ├── src/
-
-│   ├── package.json
-
-│   └── ...
-
-├── workflows-editor/
-
-│   ├── src/
-
-│   ├── package.json
-
-│   └── ...
-
-└── docker-compose.yml
+Each extension follows this structure:
+```
+extension-name/
+├── src/
+│   ├── index.ts (or interface.ts, hook.ts, etc.)
+│   └── [component files]
+├── dist/
+├── package.json
+├── tsconfig.json
+└── [extension-specific files]
+```
 
 ## Debugging & Troubleshooting
 
@@ -101,9 +161,9 @@ The current repository contains multiple Directus extensions using the "editor" 
 - pnpm
 
 ### Extension Architecture
-- Extensions override default Vue components
-- Editor type extensions modify item editing interface
-- Singleton vs standard collection handling differs between extensions
+- Extensions are modular packages that extend Directus functionality
+- Each extension type serves a specific purpose (interfaces, hooks, modules)
+- Extensions are independently built and loaded by Directus
 
 #### Interface Extensions
 - Provide custom input UI components for fields in Directus
@@ -131,6 +191,32 @@ The current repository contains multiple Directus extensions using the "editor" 
 - Starting environment: `docker compose up -d`
 - Viewing logs: `docker compose logs -f`
 - Stopping environment: `docker compose down`
+
+## Adding a New Extension
+
+When adding a new extension to the repository:
+
+1. **Create the extension directory** in `extensions/`
+2. **Set up the extension structure** following the pattern of existing extensions
+3. **Update this AGENTS.md file** - Add the new extension to the Extensions list with:
+   - Type (interface, hook, module, bundle)
+   - Technology stack
+   - Purpose description
+   - Reference to extension-specific AGENTS.md
+4. **Create extension-specific AGENTS.md** - Create `extensions/new-extension/AGENTS.md` with:
+   - Extension Overview (type, purpose, technology)
+   - Architecture (component breakdown)
+   - Development Guidelines (code changes, testing, file structure)
+   - Key Implementation Details
+   - CSS Guidelines (for module extensions)
+   - Common Tasks
+   - Important Rules
+   - Resources
+5. **Update README.md** (root) - Add the new extension to the Structure section
+6. **Test the extension** - Ensure it builds and loads correctly in Directus
+7. **Document the extension** - Create or update README.md in the extension directory
+
+See existing extensions for examples of proper structure and documentation.
 
 ## Creating Custom Interfaces with Server-Side Validation
 
@@ -226,3 +312,67 @@ extensions/your-bundle/
   }
 }
 ```
+
+## Long-Term Task Management
+
+When working across multiple sessions:
+
+### At Session Start
+1. **Review progress tracking files**
+   - Check `progress.md` for current status and phase
+   - Check `tasks.json` for active tasks and their states
+   - Review git logs to understand recent changes: `git log --oneline -20`
+
+2. **Prepare environment**
+   - Verify Docker Compose environment is running: `docker compose ps`
+   - Run fundamental integration tests before starting new features
+   - Check for any uncommitted changes: `git status`
+
+### During Work
+1. **Track progress**
+   - Update task states as work progresses
+   - Document decisions and blockers in progress.md
+   - Commit work frequently to preserve state: `git add . && git commit -m "message"`
+
+2. **Maintain context**
+   - Keep progress.md updated with current phase and status
+   - Update tasks.json with task states (NOT_STARTED, IN_PROGRESS, COMPLETE, BLOCKED)
+   - Document any architectural decisions or technical learnings
+
+### Before Context Refresh
+1. **Finalize progress tracking**
+   - Update `progress.md` with final status
+   - Update `tasks.json` with all task states
+   - Document any blockers or next steps clearly
+
+2. **Preserve state**
+   - Commit all changes: `git add . && git commit -m "message"`
+   - Push changes if applicable: `git push`
+   - Ensure progress files are committed
+
+### Progress Tracking Files
+
+**progress.md** - High-level status tracking
+- Current phase/milestone
+- Overall progress percentage
+- Key blockers or issues
+- Recent decisions and rationale
+- Next immediate steps
+
+**tasks.json** - Structured task list
+```json
+{
+  "tasks": [
+    {
+      "id": "unique-id",
+      "name": "Task name",
+      "description": "Task description",
+      "state": "NOT_STARTED|IN_PROGRESS|COMPLETE|BLOCKED",
+      "priority": "high|medium|low",
+      "blockers": "Description of any blockers"
+    }
+  ]
+}
+```
+
+These files enable seamless resumption of work across sessions and provide clear context for future work.

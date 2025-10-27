@@ -32,7 +32,7 @@
 - Access to the existing Directus extension codebase
 - Smarty API credentials (Auth ID and Auth Token)
 - Understanding of Directus extension architecture
-- Node.js and npm/yarn for development
+- Node.js and **pnpm** for development (this monorepo uses pnpm)
 
 ## Migration Tasks
 

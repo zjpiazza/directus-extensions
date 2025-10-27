@@ -86,6 +86,13 @@ The current repository contains multiple Directus extensions. Each extension is 
 2. Credentials can be found in the docker-compose file
 3. Extensions auto-reload after building
 
+### Package Manager: pnpm
+This monorepo uses **pnpm** for dependency management. Always use pnpm commands instead of npm or yarn:
+- Install dependencies: `pnpm install`
+- Add a package: `pnpm add <package-name>`
+- Remove a package: `pnpm remove <package-name>`
+- Install globally: `pnpm add -g <package-name>`
+
 ## Development Workflow
 
 ### Making Changes
@@ -187,10 +194,48 @@ extension-name/
 - Recommended approach for interfaces requiring server-side validation
 
 ## Common Tasks
-- Building extensions: `pnpm build`
+- Building extensions: `pnpm build` (run from extension directory)
+- Building all extensions: `pnpm build` (run from monorepo root)
 - Starting environment: `docker compose up -d`
 - Viewing logs: `docker compose logs -f`
 - Stopping environment: `docker compose down`
+
+## Vue Styleguidist for Complex Modules
+
+Complex module extensions (workflow-module, process-map-module) include Vue Styleguidist for isolated component development and documentation.
+
+### Running Styleguidist
+
+For **workflow-module**:
+```bash
+cd extensions/workflow-module
+pnpm run styleguide  # Start development server
+pnpm run styleguide:build  # Build static site
+```
+
+For **process-map-module**:
+```bash
+cd extensions/process-map-module
+pnpm run styleguide  # Start development server
+pnpm run styleguide:build  # Build static site
+```
+
+### Documenting Components
+
+Components are documented using JSDoc comments in the Vue files:
+```vue
+/**
+ * CustomHeader Component
+ *
+ * Main header component for the module interface
+ *
+ * @component
+ * @example
+ * <CustomHeader title="My Module" />
+ */
+```
+
+See the extension-specific AGENTS.md files for detailed component documentation guidelines.
 
 ## Adding a New Extension
 

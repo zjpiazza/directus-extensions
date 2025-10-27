@@ -58,6 +58,7 @@ email-interface/
 - **NEVER** commit changes unless explicitly prompted
 - Always test changes locally before any commits
 - Use `pnpm build` after every change
+- Use `pnpm add` or `pnpm remove` for dependency management (never edit package.json directly)
 - **ALWAYS remove debug console.log statements after user confirms changes work**
 
 ### Documentation & Research

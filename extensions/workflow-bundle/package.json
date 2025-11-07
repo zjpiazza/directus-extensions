@@ -1,0 +1,58 @@
+{
+	"name": "workflow-bundle",
+	"description": "Workflow module with collection setup hook",
+	"icon": "bolt",
+	"version": "1.0.0",
+	"keywords": [
+		"directus",
+		"directus-extension",
+		"directus-extension-bundle",
+		"workflow",
+		"module",
+		"hook"
+	],
+	"type": "module",
+	"files": [
+		"dist"
+	],
+	"directus:extension": {
+		"type": "bundle",
+		"path": {
+			"app": "dist/app.js",
+			"api": "dist/api.js"
+		},
+		"entries": [
+			{
+				"type": "module",
+				"name": "workflow",
+				"source": "src/module/index.ts"
+			},
+			{
+				"type": "hook",
+				"name": "workflow-setup",
+				"source": "src/hook/index.ts"
+			}
+		],
+		"host": "^10.10.0"
+	},
+	"scripts": {
+		"build": "directus-extension build",
+		"dev": "directus-extension build -w --no-minify",
+		"link": "directus-extension link",
+		"validate": "directus-extension validate",
+		"add": "directus-extension add"
+	},
+	"dependencies": {
+		"@vue-flow/background": "^1.0.2",
+		"@vue-flow/controls": "^1.0.6",
+		"@vue-flow/core": "^1.46.0",
+		"@vue-flow/minimap": "^1.0.3",
+		"@vue-flow/node-resizer": "^1.0.2",
+		"vue": "^3.5.21"
+	},
+	"devDependencies": {
+		"@directus/extensions-sdk": "16.0.2",
+		"@types/node": "^24.9.1",
+		"typescript": "^5.9.3"
+	}
+}

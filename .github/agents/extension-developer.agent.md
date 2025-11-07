@@ -12,6 +12,7 @@ tools:
   - Testing & Validation toolset
   - Research & Investigation toolset
   - GitHub Repository Management toolset
+  - Directus API Integration toolset
 context:
   - Repository: directus-extensions monorepo
   - Extensions: 11+ different extension types (interfaces, hooks, modules, bundles)

@@ -13,6 +13,7 @@ tools:
   - Research & Investigation toolset
   - Testing & Validation toolset
   - GitHub Repository Management toolset
+  - Directus API Integration toolset
 context:
   - Repository: directus-extensions monorepo
   - Review standards: Directus extension guidelines and best practices

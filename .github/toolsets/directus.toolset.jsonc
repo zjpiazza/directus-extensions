@@ -1,0 +1,18 @@
+{
+  "name": "Directus API Integration",
+  "description": "Tools for querying and understanding Directus API, collections, and field types",
+  "tools": [
+    {
+      "id": "directus_mcp_server",
+      "name": "Directus MCP Server",
+      "description": "Query Directus API - get collections, fields, relationships, and system information"
+    }
+  ],
+  "useCases": [
+    "Understanding collection and field structure",
+    "Discovering available field types for validation",
+    "Understanding relationships between collections",
+    "Querying system information and configuration",
+    "Debugging field type issues in extensions"
+  ]
+}

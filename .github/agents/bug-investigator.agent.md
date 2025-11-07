@@ -13,6 +13,7 @@ tools:
   - Testing & Validation toolset
   - Research & Investigation toolset
   - GitHub Repository Management toolset
+  - Directus API Integration toolset
 context:
   - Repository: directus-extensions monorepo
   - Common bug sources: Vue.js reactivity, timing issues, external API integration, validation logic

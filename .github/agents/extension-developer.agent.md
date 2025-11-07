@@ -9,10 +9,10 @@ skills:
   - Testing and validation
   - Build and deployment
 tools:
-  - Testing & Validation toolset
-  - Research & Investigation toolset
-  - GitHub Repository Management toolset
-  - Directus API Integration toolset
+  - editor - For modifying extension code
+  - discovery - For exploring codebase and researching patterns
+  - directus - For understanding Directus collections and field types
+  - execution - For running builds, tests, and git commands
 context:
   - Repository: directus-extensions monorepo
   - Extensions: 11+ different extension types (interfaces, hooks, modules, bundles)

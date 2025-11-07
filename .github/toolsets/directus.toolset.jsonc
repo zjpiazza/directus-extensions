@@ -1,75 +1,20 @@
 {
-  "name": "Directus API Integration",
-  "description": "Tools for querying and managing Directus instances via MCP server",
-  "tools": [
-    {
-      "id": "directus_system_prompt",
-      "name": "System Prompt",
-      "description": "Provides context about Directus and instance configuration"
-    },
-    {
-      "id": "directus_items",
-      "name": "Items",
-      "description": "Complete CRUD operations on collection items"
-    },
-    {
-      "id": "directus_schema",
-      "name": "Schema",
-      "description": "Read collection and field schema information"
-    },
-    {
-      "id": "directus_collections",
-      "name": "Collections",
-      "description": "Manage Directus collections (database tables)"
-    },
-    {
-      "id": "directus_fields",
-      "name": "Fields",
-      "description": "Manage collection fields and their configuration"
-    },
-    {
-      "id": "directus_relations",
-      "name": "Relations",
-      "description": "Create and manage relationships between collections"
-    },
-    {
-      "id": "directus_files",
-      "name": "Files",
-      "description": "File management and metadata operations"
-    },
-    {
-      "id": "directus_assets",
-      "name": "Assets",
-      "description": "Retrieve file content as base64 for processing"
-    },
-    {
-      "id": "directus_flows",
-      "name": "Flows",
-      "description": "Automation workflow management"
-    },
-    {
-      "id": "directus_operations",
-      "name": "Operations",
-      "description": "Manage individual operations within flows"
-    },
-    {
-      "id": "directus_trigger_flow",
-      "name": "Trigger Flow",
-      "description": "Execute manual flows programmatically"
-    },
-    {
-      "id": "directus_folders",
-      "name": "Folders",
-      "description": "Manage file organization structure"
-    }
-  ],
-  "useCases": [
-    "Understanding collection and field structure for extensions",
-    "Discovering available field types for validation logic",
-    "Understanding relationships between collections",
-    "Querying system information and instance configuration",
-    "Debugging field type issues in extensions",
-    "Managing test data for extension validation",
-    "Creating automated workflows for extension testing"
-  ]
+  "directus": {
+    "tools": [
+      "directus_system_prompt",
+      "directus_items",
+      "directus_schema",
+      "directus_collections",
+      "directus_fields",
+      "directus_relations",
+      "directus_files",
+      "directus_assets",
+      "directus_flows",
+      "directus_operations",
+      "directus_trigger_flow",
+      "directus_folders"
+    ],
+    "description": "Tools for querying and managing Directus instances via MCP server",
+    "icon": "database"
+  }
 }

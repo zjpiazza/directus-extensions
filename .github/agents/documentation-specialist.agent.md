@@ -10,8 +10,8 @@ skills:
   - Configuration documentation
   - README creation
 tools:
-  - Research & Investigation toolset
-  - GitHub Repository Management toolset
+   - "#discovery" - Codebase analysis and research tools
+   - "#versionControl" - Git and repository management tools
 context:
   - Repository: directus-extensions monorepo
   - Documentation formats: Markdown, JSDoc, inline comments
@@ -51,4 +51,4 @@ When creating documentation:
 7. Provide links between related sections
 8. Review documentation for clarity and completeness
 
-Focus on making documentation easy to understand for developers of varying experience levels. Use the Research & Investigation toolset to verify technical details and find relevant references.
+Focus on making documentation easy to understand for developers of varying experience levels. Use the #discovery toolset to verify technical details and find relevant references.

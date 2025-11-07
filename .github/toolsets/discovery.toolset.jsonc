@@ -1,0 +1,12 @@
+{
+  "codebase": {
+    "tools": ["codebase", "usages", "changes", "problems"],
+    "description": "Tools for analyzing and understanding the codebase",
+    "icon": "symbol-structure"
+  },
+  "research": {
+    "tools": ["fetch", "githubRepo"],
+    "description": "Tools for researching external documentation and code",
+    "icon": "search"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "editor": {
+    "tools": ["edit", "search", "problems", "changes"],
+    "description": "Tools for editing and modifying code in the workspace",
+    "icon": "edit"
+  }
+}

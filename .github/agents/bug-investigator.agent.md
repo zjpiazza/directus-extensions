@@ -10,10 +10,10 @@ skills:
   - Systematic problem solving
   - Test-driven debugging
 tools:
-  - Testing & Validation toolset
-  - Research & Investigation toolset
-  - GitHub Repository Management toolset
-  - Directus API Integration toolset
+   - "#execution" - Testing, linting, and build tools
+   - "#discovery" - Codebase analysis and research tools
+   - "#versionControl" - Git and repository management tools
+   - "#directus" - Directus API integration tools
 context:
   - Repository: directus-extensions monorepo
   - Common bug sources: Vue.js reactivity, timing issues, external API integration, validation logic
@@ -54,4 +54,4 @@ When investigating bugs:
 6. Add a test to prevent regression
 7. Document what you found and how you fixed it
 
-Use the Testing & Validation toolset to run tests and builds. Use the Research & Investigation toolset to understand error patterns or look up documentation. Focus on systematic problem-solving and thorough verification.
+Use the #execution toolset to run tests and builds. Use the #discovery toolset to understand error patterns or look up documentation. Focus on systematic problem-solving and thorough verification.

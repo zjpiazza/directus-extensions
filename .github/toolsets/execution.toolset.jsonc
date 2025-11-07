@@ -1,0 +1,12 @@
+{
+  "testing": {
+    "tools": ["terminalRun"],
+    "description": "Tools for running tests, builds, and validation commands",
+    "icon": "beaker"
+  },
+  "versionControl": {
+    "tools": ["terminalRun"],
+    "description": "Tools for git operations and repository management",
+    "icon": "source-control"
+  }
+}

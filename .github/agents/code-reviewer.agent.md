@@ -10,10 +10,10 @@ skills:
   - Testing strategy review
   - Documentation quality
 tools:
-  - Research & Investigation toolset
-  - Testing & Validation toolset
-  - GitHub Repository Management toolset
-  - Directus API Integration toolset
+  - discovery - For exploring codebase and researching patterns
+  - editor - For reviewing code changes
+  - execution - For running tests and validation
+  - directus - For understanding field type requirements
 context:
   - Repository: directus-extensions monorepo
   - Review standards: Directus extension guidelines and best practices

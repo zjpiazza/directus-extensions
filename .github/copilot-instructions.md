@@ -80,7 +80,6 @@ extension-name/
 │   └── [component files]
 ├── package.json
 ├── tsconfig.json
-├── AGENTS.md
 └── README.md
 ```
 
@@ -126,14 +125,16 @@ extension-name/
 ## Documentation & Resources
 
 ### Key Files
-- Root `AGENTS.md` - Project-level guidance
-- Extension `AGENTS.md` - Extension-specific patterns and guidelines
+- `.github/agents/` - Specialized development personas for different tasks
+- `.github/toolsets/` - Grouped tool collections for specific workflows
+- `.github/prompts/` - Reusable prompts for common tasks
 - Extension `README.md` - Implementation details
 - Root `README.md` - Repository structure
 
 ### Getting Help
-- Check extension-specific `AGENTS.md` for patterns
-- Reference `QUICK_REFERENCE.md` in root for common tasks
+- Review `.github/agents/` for specialized task guidance
+- Check `.github/prompts/` for common task patterns
+- Reference `README.md` in root for repository structure
 - Use context7/firecrawl for external research
 - Review existing extensions as examples
 

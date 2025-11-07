@@ -1,0 +1,23 @@
+{
+  "name": "GitHub Repository Management",
+  "description": "Tools for interacting with GitHub repository, issues, and pull requests",
+  "tools": [
+    {
+      "id": "bash_github_cli",
+      "name": "GitHub CLI (via Bash)",
+      "description": "Use gh command for GitHub operations - creating PRs, checking issues, managing releases"
+    },
+    {
+      "id": "bash_git",
+      "name": "Git CLI (via Bash)",
+      "description": "Git operations - commits, branches, history, diffs, status"
+    }
+  ],
+  "useCases": [
+    "Creating and managing pull requests",
+    "Checking issue statuses and comments",
+    "Managing branches and commits",
+    "Viewing repository history",
+    "Creating releases"
+  ]
+}

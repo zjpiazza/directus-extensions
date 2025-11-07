@@ -132,7 +132,7 @@ The hook provides:
 ### Debugging
 
 Enable debug logging to see tenant operations:
-1. Check the extension's AGENTS.md for debugging guidelines
+1. See root repository debugging guidelines
 2. Review API logs for tenant context details
 3. Check for any isolation violations
 4. Monitor performance impact

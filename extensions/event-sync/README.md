@@ -83,7 +83,7 @@ The hook provides:
 ### Debugging
 
 Enable debug logging to see event processing:
-1. Check the extension's AGENTS.md for debugging guidelines
+1. See root repository debugging guidelines
 2. Review API logs for event details
 3. Check browser console for any client-side issues
 

@@ -20,7 +20,7 @@ directus-extensions/
 │   └── workflow-module/                 # Workflow visualization
 ├── pnpm-workspace.yaml
 ├── package.json
-├── AGENTS.md                            # Agent guidelines (see for extension-specific rules)
+
 └── README.md                            # This file
 ```
 
@@ -48,7 +48,7 @@ When adding a new extension to the repository:
 
 1. **Create the extension directory** in `extensions/`
 2. **Set up the extension structure** following the pattern of existing extensions
-3. **Update AGENTS.md** (root) - Add the new extension to the Extensions list with type, technology, purpose, and reference to extension-specific AGENTS.md
+3. **Update README.md** (extension) - Document implementation details and any extension-specific guidelines
 4. **Create extension-specific AGENTS.md** - Create `extensions/new-extension/AGENTS.md` with guidelines specific to that extension
 5. **Update README.md** (root) - Add the new extension to the Structure section
 6. **Test the extension** - Ensure it builds and loads correctly in Directus

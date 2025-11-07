@@ -1,5 +1,5 @@
 ---
-applyTo: "extensions/*interface/**"
+applyTo: "extensions/email-interface/**,extensions/address-completion-interface/**"
 ---
 
 # Interface Extensions - Copilot Instructions

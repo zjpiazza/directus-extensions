@@ -1,5 +1,5 @@
 ---
-applyTo: "extensions/*bundle/**"
+applyTo: "extensions/email-bundle/**,extensions/phone-bundle/**,extensions/ssn-bundle/**"
 ---
 
 # Bundle Extensions - Copilot Instructions

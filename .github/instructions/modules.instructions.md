@@ -1,5 +1,5 @@
 ---
-applyTo: "extensions/*module/**"
+applyTo: "extensions/process-map-module/**,extensions/workflow-module/**,extensions/report-viewer/**,extensions/report-designer-module/**"
 ---
 
 # Module Extensions - Copilot Instructions

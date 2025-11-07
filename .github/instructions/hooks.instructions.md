@@ -1,5 +1,5 @@
 ---
-applyTo: "extensions/*hook/**"
+applyTo: "extensions/event-sync/**,extensions/tenant-hook/**"
 ---
 
 # Hook Extensions - Copilot Instructions

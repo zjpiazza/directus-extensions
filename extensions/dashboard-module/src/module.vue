@@ -17,6 +17,10 @@
 			</v-button>
 		</template>
 
+		<template #navigation>
+			<navigation />
+		</template>
+
 		<div class="dashboard-container">
 			<!-- Welcome Section -->
 			<div class="welcome-section">
@@ -68,6 +72,7 @@ import { useApi } from '@directus/extensions-sdk';
 import StatsCard from './components/StatsCard.vue';
 import RecentCases from './components/RecentCases.vue';
 import QuickActions from './components/QuickActions.vue';
+import Navigation from './components/Navigation.vue';
 
 interface Stats {
 	totalCases: number;

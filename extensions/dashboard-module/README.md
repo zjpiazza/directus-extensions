@@ -4,6 +4,12 @@ A comprehensive dashboard module for Directus that provides an overview of case 
 
 ## Features
 
+### Navigation Sidebar
+- **Cases**: Quick access to cases collection
+- **Notes**: Navigate to notes management
+- **Appointments**: View and manage appointments
+- **Workflows**: Access workflow management
+
 ### Stats Cards
 - **Total Cases**: Displays total number of cases with month-over-month comparison
 - **Active Cases**: Shows currently active cases with percentage of total
@@ -23,6 +29,15 @@ A comprehensive dashboard module for Directus that provides an overview of case 
 - **Generate Report**: Open report viewer
 
 ## Components
+
+### `Navigation.vue`
+Sidebar navigation component for quick access to key collections.
+
+**Navigation Items:**
+- Cases → `/#/content/cases`
+- Notes → `/#/content/notes`
+- Appointments → `/#/content/appointments`
+- Workflows → `/#/content/workflows`
 
 ### `StatsCard.vue`
 Reusable card component for displaying statistics with optional icon and variant styling.
@@ -102,6 +117,20 @@ Edit the `fetchStats()` function in `module.vue` to adjust how statistics are ca
 
 ### Changing Quick Actions
 Modify the `actions` array in `QuickActions.vue` to add/remove/change action buttons.
+
+### Customizing Navigation Sidebar
+Edit the `navItems` array in `Navigation.vue` to add or modify navigation links:
+
+```typescript
+const navItems: NavigationItem[] = [
+  {
+    label: 'Your Collection',
+    to: '/#/content/your_collection',
+    icon: 'icon_name',
+  },
+  // Add more items...
+];
+```
 
 ### Adjusting Recent Cases Limit
 Change the `limit` parameter in the API call within `RecentCases.vue`:

@@ -2,9 +2,9 @@ import { defineModule } from '@directus/extensions-sdk';
 import ModuleComponent from './module.vue';
 
 export default defineModule({
-	id: 'custom',
-	name: 'Custom',
-	icon: 'box',
+	id: 'dashboard',
+	name: 'Dashboard',
+	icon: 'dashboard',
 	routes: [
 		{
 			path: '',
